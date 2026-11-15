@@ -41,17 +41,23 @@ Bản đầu: worker chạy 1 job một lúc; dùng bảng Jobs trong database l
 
 Mọi công cụ quy về 2 kiểu: gọi HTTP (dịch vụ chạy trong Docker) hoặc chạy lệnh (FFmpeg...).
 
-## Quyết định còn mở
+## Ngôn ngữ backend (đã chốt 16/11/2026)
 
-Chưa chọn ngôn ngữ backend:
-- Toàn bộ .NET (API + Worker Service), hoặc
-- Toàn bộ Python (FastAPI + worker Python; gọi thẳng mô hình AI, không cần bọc), hoặc
-- API .NET + Worker Python.
-Hỏi lại người dùng trước khi viết code backend.
+API viết bằng .NET (ASP.NET Core minimal API, .NET 10), Worker viết bằng Python.
+Lý do: người dùng đang học .NET; worker Python gọi thẳng được các mô hình AI.
+
+- api/: minimal API, EF Core + SQLite (file api/data/jobs.db, tạo bằng EnsureCreated,
+  chưa dùng migration). File lưu ở api/data/files, đặt tên theo Id job.
+  Id job là Guid để người khác không đoán được. Upload đọc bằng request.ReadFormAsync.
+  Cổng 5100. WorkerKey lấy từ cấu hình (bản dev: "dev-worker-key").
+- worker/: main.py (vòng lặp polling), handlers/ (mỗi loại job một file, đăng ký trong
+  handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
+- Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert).
 
 ## Hai máy
 
-- Máy cá nhân (đang dùng): để phát triển và chạy thử. Chưa biết có GPU hay không.
+- Máy cá nhân (đang dùng): để phát triển và chạy thử. GPU: NVIDIA GTX 1650 4GB
+  (driver 512.78), đủ thử Whisper bản nhỏ, không chạy được mô hình AI nặng.
 - Máy chạy thật: Intel Core Ultra 5 245K, RAM 64GB, NVIDIA RTX 5060 Ti 16GB, ổ cứng ~11TB, Windows.
 
 Cách chuyển giữa 2 máy: code và file cấu hình đi qua Git (repo private
@@ -85,20 +91,31 @@ không cài driver bên trong WSL.
   PDFMathTranslate là AGPL-3.0; Stirling-PDF có một số tính năng độc quyền;
   ACE-Step (MIT) và Wan 2.2 (Apache 2.0) dùng thương mại được.
 - Mạng gia đình: tốc độ upload thấp, file video lớn có thể tải lên/xuống lâu.
-- Stirling-PDF bản mới có thể bật đăng nhập mặc định; chưa xác minh tài khoản mặc định.
+- Stirling-PDF bản mới bật đăng nhập mặc định (đã xác minh 16/11/2026): tài khoản mặc định
+  hiện ngay trên trang /login, phải đổi mật khẩu sau lần đăng nhập đầu. Khi worker gọi
+  API của Stirling sẽ cần xử lý xác thực (API key) hoặc tắt đăng nhập.
+- Image Stirling-PDF lấy từ docker.stirlingpdf.com, tải lần đầu khá chậm (hơn 10 phút).
 - Các công cụ AI sau này thêm vào docker-compose.yml với `profiles: [gpu]` để máy không có GPU vẫn chạy phần còn lại.
 
 ## Trạng thái hiện tại
 
 - Repo có: docker-compose.yml (Stirling-PDF + Gotenberg, chỉ mở trên 127.0.0.1),
   .gitignore, README.md, CLAUDE.md.
-- Đã git init và commit; remote origin đã đặt. Người dùng tự chạy `git push`
-  (môi trường Claude chat không push được).
+- Đã push lên GitHub.
+- Máy cá nhân (16/11/2026): `docker compose up -d` chạy được. Stirling-PDF trả 200 ở
+  :8080 (chuyển sang /login). Gotenberg /health báo chromium + libreoffice "up", đã đổi
+  thử HTML tiếng Việt sang PDF thành công.
+- Khung API + Worker đã chạy thử trọn luồng (16/11/2026): file .docx tiếng Việt thành PDF
+  đúng chữ; sai key bị 401; hàng đợi trống trả 204; sai đuôi file bị 400; Gotenberg không
+  gọi được thì job thành Failed kèm lý do.
+- Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
+  chứ không báo lỗi.
 
 ## Bước tiếp theo
 
-1. Người dùng chạy `docker compose up -d`, kiểm tra http://localhost:8080 và http://localhost:3000/health.
-2. Push lên GitHub, clone sang máy GPU, chạy lại; kiểm tra GPU trong Docker:
+1. Clone sang máy GPU, chạy lại `docker compose up -d`; kiểm tra GPU trong Docker:
    `docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi`
-3. Chốt ngôn ngữ backend, rồi dựng khung: API (endpoint jobs/next, complete, tạo job)
-   và Worker, kèm một handler chạy thật (Word sang PDF qua Gotenberg).
+2. Làm trang web đơn giản để tải file lên và tải kết quả về (hiện chỉ thử bằng curl).
+3. Thêm handler mới (ví dụ nén/gộp PDF qua Stirling-PDF, cần xử lý đăng nhập/API key).
+Để sau: job bị kẹt ở Processing khi worker tắt giữa chừng, retry, xoá file cũ,
+giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB).

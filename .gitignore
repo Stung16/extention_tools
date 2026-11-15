@@ -7,3 +7,11 @@ models/
 
 # File tạm
 *.log
+
+# .NET: file sinh ra khi build
+bin/
+obj/
+
+# Python
+__pycache__/
+.venv/
