@@ -1,0 +1,26 @@
+# Các công cụ chạy local.
+# Khởi động:  docker compose up -d
+# Dừng lại:   docker compose down
+
+services:
+
+  # Bộ công cụ PDF: gộp, tách, nén, OCR, chuyển đổi...
+  # Mở trên trình duyệt: http://localhost:8080
+  stirling-pdf:
+    image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
+    container_name: stirling-pdf
+    ports:
+      - "127.0.0.1:8080:8080"   # chỉ máy này truy cập được, người ngoài không vào được
+    volumes:
+      - ./data/stirling/tessdata:/usr/share/tessdata   # gói ngôn ngữ cho OCR
+      - ./data/stirling/configs:/configs               # cài đặt của Stirling
+    restart: unless-stopped     # máy khởi động lại thì tự chạy lại
+
+  # Chuyển Word, Excel, PowerPoint, HTML sang PDF qua API
+  # Kiểm tra: http://localhost:3000/health
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: gotenberg
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped

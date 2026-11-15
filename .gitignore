@@ -1,0 +1,9 @@
+# Dữ liệu sinh ra khi chạy: mỗi máy tự có, không đưa lên Git
+data/
+models/
+
+# Thông tin bí mật (mật khẩu, mã API)
+.env
+
+# File tạm
+*.log
