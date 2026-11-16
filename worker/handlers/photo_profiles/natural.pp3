@@ -1,0 +1,32 @@
+# Profile bổ sung (partial profile) cho kiểu "Tự nhiên". RawTherapee ghép lên trên profile nền
+# "Auto-Matched Curve - ISO Low" (màu, đường cong khớp với ảnh JPEG của máy). Chỉ ghi những mục cần đổi.
+# Không có bước nào vẽ thêm chi tiết: chỉ khử nhoè quang học và sửa lỗi ống kính.
+
+[White Balance]
+Setting=Camera
+
+# Làm nét bằng khử nhoè (capture sharpening / deconvolution), tự đo bán kính và ngưỡng tương phản,
+# để không làm nét nền phẳng (bầu trời, da) và không tạo viền sáng quanh vật.
+[PostDemosaicSharpening]
+Enabled=true
+AutoContrast=true
+AutoRadius=true
+Contrast=10
+DeconvRadius=0.75
+DeconvRadiusOffset=0
+DeconvIterCheck=true
+DeconvIterations=20
+
+# Tắt làm nét kiểu "unsharp mask" ở cuối (dễ tạo viền giả), đã có khử nhoè ở trên.
+[Sharpening]
+Enabled=false
+
+# Sửa lỗi ống kính tự động theo cơ sở dữ liệu lensfun: méo hình, tối góc.
+[LensProfile]
+LcMode=lfauto
+UseDistortion=true
+UseVignette=true
+UseCA=false
+
+[Directional Pyramid Denoising]
+Enabled=false

@@ -27,7 +27,7 @@ async fn read_error(r: reqwest::Response) -> String {
     let status = r.status().as_u16();
     let body: serde_json::Value = r.json().await.unwrap_or_default();
     match (status, body.get("error").and_then(|e| e.as_str())) {
-        (401, _) => "API từ chối: mã worker không khớp. Sửa trong Cài đặt cho trùng WORKER_KEY của API.".into(),
+        (401, _) => "API từ chối: mã quản trị không khớp. Sửa trong Cài đặt cho trùng ADMIN_KEY (AdminKey) của API.".into(),
         (404, None) => "API này chưa có tính năng giám sát: hãy chạy bản API mới.".into(),
         (_, Some(msg)) => msg.into(),
         _ => format!("API báo lỗi HTTP {status}."),
@@ -38,14 +38,14 @@ async fn read_error(r: reqwest::Response) -> String {
 #[tauri::command]
 async fn overview(http: State<'_, Http>, api_url: String, key: String) -> Result<serde_json::Value, String> {
     let url = format!("{}/api/admin/overview", api_url.trim_end_matches('/'));
-    let r = http.0.get(url).header("X-Worker-Key", key).send().await.map_err(|e| api_error(&api_url, e))?;
+    let r = http.0.get(url).header("X-Admin-Key", key).send().await.map_err(|e| api_error(&api_url, e))?;
     if !r.status().is_success() {
         return Err(read_error(r).await);
     }
     r.json().await.map_err(|e| format!("Không đọc được dữ liệu API trả về: {e}"))
 }
 
-/// Thử lại job lỗi (action = "retry") hoặc huỷ job đang chờ (action = "cancel").
+/// Thử lại job lỗi hoặc đã huỷ (action = "retry"), hoặc huỷ job đang chờ (action = "cancel").
 #[tauri::command]
 async fn job_action(http: State<'_, Http>, api_url: String, key: String, id: String, action: String) -> Result<(), String> {
     if action != "retry" && action != "cancel" {
@@ -56,7 +56,7 @@ async fn job_action(http: State<'_, Http>, api_url: String, key: String, id: Str
         return Err("Mã job không hợp lệ.".into());
     }
     let url = format!("{}/api/admin/jobs/{id}/{action}", api_url.trim_end_matches('/'));
-    let r = http.0.post(url).header("X-Worker-Key", key).send().await.map_err(|e| api_error(&api_url, e))?;
+    let r = http.0.post(url).header("X-Admin-Key", key).send().await.map_err(|e| api_error(&api_url, e))?;
     if r.status().is_success() { Ok(()) } else { Err(read_error(r).await) }
 }
 

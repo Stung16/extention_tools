@@ -6,9 +6,10 @@ Mỗi handler nhận (input_path, work_dir, options) và trả về đường d�
 Thêm công cụ mới = viết thêm một hàm trong thư mục này và đăng ký ở đây
 (nhớ khai báo thêm loại job trong api/JobCatalog.cs). Nhiều loại job có thể dùng chung một handler.
 
-Có hai nhóm:
-  MAIN  chạy được trên máy thường (Stirling-PDF, Gotenberg, Pillow, FFmpeg)
-  AI    cần thư viện AI nặng (PyTorch...), nên chạy trên máy có GPU; chỉ được nạp khi worker là "ai"/"all"
+Có ba nhóm:
+  MAIN   chạy được trên máy thường (Stirling-PDF, Gotenberg, Pillow, FFmpeg)
+  AI     cần thư viện AI nặng (PyTorch...), nên chạy trên máy có GPU; chỉ được nạp khi worker là "ai"/"all"
+  PHOTO  xử lý ảnh RAW cho nhiếp ảnh gia (RawTherapee + ExifTool, không AI); nạp khi worker là "photo"/"all"
 """
 
 from . import (compress_pdf, converters, html_to_pdf, images, media, office_to_pdf, stirling_from_pdf,
@@ -83,12 +84,22 @@ def _ai_handlers() -> dict:
     }
 
 
+def _photo_handlers() -> dict:
+    from . import photo
+
+    return {
+        "raw-develop": photo.develop,
+    }
+
+
 def handlers_for(profile: str) -> dict:
-    """profile: "main", "ai" hoặc "all"."""
+    """profile: "main", "ai", "photo" hoặc "all"."""
     if profile == "main":
         return dict(MAIN)
     if profile == "ai":
         return _ai_handlers()
+    if profile == "photo":
+        return _photo_handlers()
     if profile == "all":
-        return {**MAIN, **_ai_handlers()}
-    raise ValueError(f"WORKER_PROFILE không hợp lệ: '{profile}' (chọn main, ai hoặc all)")
+        return {**MAIN, **_ai_handlers(), **_photo_handlers()}
+    raise ValueError(f"WORKER_PROFILE không hợp lệ: '{profile}' (chọn main, ai, photo hoặc all)")

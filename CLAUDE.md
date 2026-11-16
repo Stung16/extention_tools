@@ -39,10 +39,24 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - pdf.js 4.10.38 vẽ trang bằng requestAnimationFrame: tab/khung trình duyệt bị ẩn thì KHÔNG vẽ
     (gặp khi test trong Browser pane bị ẩn; người dùng thật không bị).
 - `api/` ASP.NET Core minimal API (.NET 10), EF Core + SQLite (EnsureCreated, chưa migration; đổi
-  entity Job phải xoá jobs.db khi dev). DataDir (mặc định api/data; Docker /data). Cổng 5100 (Docker
-  map 5100->8080). WorkerKey từ cấu hình (dev: "dev-worker-key").
-  - JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai", Input "file"/"url",
-    UrlPattern). JobOption: Kind choice/text/password, Pattern, MaxLength, Required, Hint.
+  entity phải xoá jobs.db khi dev). DataDir (mặc định api/data; Docker /data). Cổng 5100 (Docker
+  map 5100->8080). Bắt buộc cấu hình: WorkerKey, AdminKey, Storage:SigningKey (dev có trong
+  appsettings.Development.json: dev-worker-key, dev-admin-key). Thiết kế: docs/kien-truc-he-thong.md.
+  - Cấu trúc: Program.cs (cấu hình) + Endpoints/{Web,Worker,Admin,V1}Endpoints.cs (4 cửa: ẩn danh,
+    X-Worker-Key, X-Admin-Key, Bearer khoá app khách) + JobHelpers.cs (Secrets, UploadLimits, JobRuntime
+    giữ lastSeen/lease/RecoverAbandonedJobs, ValidateOptions dùng chung form + JSON, ApiKeys, KeyFilters)
+    + Platform.cs (ApiClient, Upload, Batch) + Storage/IFileStore + LocalFileStore.
+  - Kho file: khoá "web/<guid>-input.ext", "uploads/<guid>.ext", "results/<guid>.ext" (regex kiểm tra trong
+    FileKeys). LocalFileStore ký link /v1/files/{key}?exp&sig[&name] bằng HMAC (PUT tải lên, GET tải về,
+    phương thức nằm trong chữ ký). PUT tự nới MaxRequestBodySize đúng bằng size đã khai (Upload:MaxBytes 1 GB).
+  - API v1: uploads -> PUT -> batches (Idempotency-Key, unique (ClientId, IdempotencyKey); mỗi upload 1 job,
+    CreatedAt + i tick giữ thứ tự) -> batches/{id} -> jobs/{id}/result (link 6 giờ). Chỉ công cụ Input "file".
+    Mỗi app chỉ thấy của mình (404). Khoá "ccf_" + 32 byte, lưu SHA-256. JobStatus thêm Cancelled.
+  - Ưu tiên: Job.Priority (web 10, lô 0); /next xếp Priority giảm dần rồi CreatedAt.
+  - tests/smoke_v1.py: 30 kiểm tra (xác thực, tải lên, lô, idempotency, cô lập app, huỷ, ưu tiên, link,
+    nguồn trong overview, thử lại job đã huỷ, khoá app) với worker main thật; đã chạy đúng hết 17/11/2026.
+  - JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai"/"photo", Input
+    "file"/"url"/"none", UrlPattern). JobOption: Kind choice/text/password, Pattern, MaxLength, Required, Hint.
   - /next?types=a,b: worker chỉ nhận loại nó làm; API ghi lastSeen theo loại (online nếu < 30 giây).
   - Giữ job (lease): Job.Attempts + Job.LeaseUntil. /next tăng Attempts, đặt hạn 2 phút (JobLeaseSeconds),
     trả "attempt". Worker gửi POST /{id}/heartbeat?attempt=n mỗi 30 giây (HEARTBEAT_SECONDS, luồng phụ).
@@ -52,9 +66,15 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - Kind "password": xoá khỏi Jobs.Options khi complete/fail, ẩn ở GET /api/jobs/{id}.
   - Job dạng url: InputFile="", link ở Options["url"], tên tải về lấy từ form "name" worker gửi.
   - Tên tải về: tên gốc + đuôi kết quả; cùng đuôi với file gốc thì thêm "-ket-qua".
-  - Giới hạn upload 100 MB. MapFallback trả index.html (thiếu thì báo chạy npm run build); /api/* vẫn 404.
-- `worker/` Python. WORKER_PROFILE main | ai | all. handlers/__init__.py: MAIN (35 loại) và AI (8 loại,
-  nạp lười nên worker main không cần PyTorch). Mỗi handler (input_path, work_dir, options) -> Path.
+  - Giới hạn form trang web 100 MB. MapFallback trả index.html (thiếu thì báo chạy npm run build); /api/* và
+    /v1/* vẫn 404.
+- `worker/` Python. WORKER_PROFILE main | ai | photo | all. handlers/__init__.py: MAIN (35 loại), AI và PHOTO
+  (nạp lười). Mỗi handler (input_path, work_dir, options) -> Path.
+  - photo.py raw-develop: rawtherapee-cli -Y -p <profile có sẵn "Auto-Matched Curve - ISO Low/High"> -p
+    photo_profiles/<preset>.pp3 -o out (-t -b16 | -j95 -js3) -c raw; rồi exiftool -all= --ICC_Profile:all
+    -TagsFromFile raw -all:all (bỏ Orientation, ảnh preview/thumbnail). RAWTHERAPEE_CLI, EXIFTOOL tự tìm.
+    CHƯA chạy thật: máy cá nhân chưa cài RawTherapee/ExifTool; khoá .pp3 phải đối chiếu với profile có sẵn
+    của bản RT cài. Ảnh mẫu RAW (CR3, NEF, ARW, RAF, DNG từ raw.pixls.us) đã tải vào scratchpad/raw-samples.
   - stirling.py post(): gửi fileInput KÈM content-type (thiếu thì pdf->word/presentation/html báo 400),
     đuôi kết quả theo Content-Disposition, lỗi pdf-password đổi tiếng Việt.
   - images.py (Pillow 13 có AVIF sẵn + pillow-heif cho HEIC), media.py (FFmpeg: nén/đổi video, đổi âm
@@ -141,6 +161,9 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
 - Docker vẫn lưu ở ổ C (C:\Users\admin\AppData\Local\Docker\wsl\disk\docker_data.vhdx ~38 GB, ổ C còn ~6 GB):
   muốn build image AI trên máy này phải chuyển "Disk image location" của Docker Desktop sang ổ D trước.
 - Máy GPU: build và thử profile ai; thử chép lời tiếng Việt (cân nhắc PhoWhisper đổi sang CTranslate2).
+- Hướng mới (17/11/2026): Công Cụ File là nền tảng xử lý; app khách (ví dụ web nhiếp ảnh gia, người dùng tự
+  làm, KHÔNG phải việc của mình) gọi API v1. Lộ trình bước 1-4 trong docs/kien-truc-he-thong.md. Nhiếp ảnh gia:
+  ảnh RAW đa dạng, xử lý nhiều ảnh, trung thực (không AI vẽ lại, không đổi mặt), không nhãn/metadata AI.
 - Đã làm (16/11/2026): job kẹt khi worker tắt giữa chừng (lease + heartbeat, thử tắt worker thật: lượt 2 xong).
   Còn: bỏ container_name của worker để --scale, xoá file cũ (FAQ không hứa tự xoá), EF Core
   migrations, xem trước dung lượng từng mức nén, mở ra internet (HTTPS, chống lạm dụng, đăng nhập, gói

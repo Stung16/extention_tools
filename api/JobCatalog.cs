@@ -9,6 +9,9 @@ public static class JobCatalog
     static readonly string[] Images = [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".heic", ".heif", ".avif"];
     static readonly string[] Videos = [".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".wmv", ".flv", ".3gp"];
     static readonly string[] Audios = [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wma"];
+    // Ảnh RAW của các hãng máy ảnh (RawTherapee đọc được qua thư viện LibRaw/dcraw).
+    static readonly string[] RawImages = [".cr2", ".cr3", ".crw", ".nef", ".nrw", ".arw", ".srf", ".sr2", ".raf", ".orf",
+        ".rw2", ".pef", ".dng", ".srw", ".3fr", ".iiq", ".erf", ".mos", ".rwl", ".x3f"];
 
     public static readonly Dictionary<string, JobTypeInfo> Types = new()
     {
@@ -259,6 +262,21 @@ public static class JobCatalog
                 new("120", "2 phút"),
             ]),
         ], Worker: "ai", Input: "none"),
+
+        // ---------- Ảnh cho nhiếp ảnh gia (máy "photo": RawTherapee + ExifTool, không AI) ----------
+        ["raw-develop"] = new("Rửa ảnh RAW", RawImages,
+        [
+            new JobOption("preset", "Kiểu rửa", Default: "natural", Choices:
+            [
+                new("natural", "Tự nhiên: làm nét nhẹ, sửa lỗi ống kính"),
+                new("high-iso", "Ảnh tối, ISO cao: thêm khử nhiễu"),
+            ]),
+            new JobOption("format", "Định dạng kết quả", Default: "jpg", Choices:
+            [
+                new("jpg", "JPEG chất lượng cao (giao khách)"),
+                new("tif", "TIFF 16-bit (chỉnh tiếp trong Lightroom/Photoshop)"),
+            ]),
+        ], Worker: "photo"),
     };
 
     static JobOption[] TranscribeOptions() =>
@@ -288,7 +306,7 @@ public static class JobCatalog
 //   Label       tên hiển thị
 //   Extensions  đuôi file được nhận (Input = "file")
 //   OptionList  các tuỳ chọn (có thể không có)
-//   Worker      "main" (worker thường) hoặc "ai" (worker AI, cần GPU) - để trang web báo máy nào đang tắt
+//   Worker      "main" (worker thường), "ai" (worker AI, cần GPU) hoặc "photo" (ảnh RAW) - để báo máy nào đang tắt
 //   Input       "file" (tải file lên), "url" (dán đường link) hoặc "none" (không có file, chỉ nhập chữ)
 //   UrlPattern  mẫu kiểm tra đường link (Input = "url")
 public record JobTypeInfo(string Label, string[] Extensions, JobOption[]? OptionList = null,

@@ -1,12 +1,13 @@
 namespace Api;
 
-// Trạng thái của một job: Pending -> Processing -> Done / Failed
+// Trạng thái của một job: Pending -> Processing -> Done / Failed. Job đang chờ có thể bị huỷ (Cancelled).
 public enum JobStatus
 {
     Pending,     // vừa tạo, đang chờ worker nhận
     Processing,  // worker đã nhận, đang xử lý
     Done,        // xong, đã có file kết quả
-    Failed       // lỗi, xem cột Error
+    Failed,      // lỗi, xem cột Error
+    Cancelled    // bị huỷ khi còn đang chờ (bởi người quản lý hoặc app khách)
 }
 
 // Một dòng trong bảng Jobs
@@ -19,9 +20,9 @@ public class Job
     public string Type { get; set; } = "";          // loại job, ví dụ "word-to-pdf"
     public JobStatus Status { get; set; }
     public string OriginalName { get; set; } = "";  // tên file người dùng tải lên
-    public string InputFile { get; set; } = "";     // tên file đầu vào trong thư mục data/files
-    public string? OutputFile { get; set; }         // tên file kết quả (có khi Done)
-    public string? Error { get; set; }              // lý do lỗi (có khi Failed)
+    public string InputFile { get; set; } = "";     // khoá của file đầu vào trong kho file ("" nếu không có file)
+    public string? OutputFile { get; set; }         // khoá của file kết quả trong kho file (có khi Done)
+    public string? Error { get; set; }              // lý do lỗi (có khi Failed/Cancelled)
     public string Options { get; set; } = "{}";     // tuỳ chọn người dùng chọn, dạng JSON, ví dụ {"level":"5"}
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -33,4 +34,14 @@ public class Job
     // Hạn giữ job: worker đang xử lý phải gia hạn (gửi "tín hiệu sống") trước hạn này.
     // Quá hạn mà không gia hạn -> coi như worker đã chết, job được trả về hàng chờ.
     public DateTime? LeaseUntil { get; set; }
+
+    // Job đến từ đâu: null = trang web công cụ; có giá trị = app khách gọi qua API v1.
+    public Guid? ClientId { get; set; }
+    // Job thuộc lô nào (chỉ job tạo qua API v1) và từ file tải lên nào.
+    public Guid? BatchId { get; set; }
+    public Guid? UploadId { get; set; }
+
+    // Số càng lớn càng được làm trước. Job lẻ của trang web cao hơn job trong lô,
+    // để người dùng trang web không phải chờ sau một lô hàng trăm ảnh.
+    public int Priority { get; set; }
 }

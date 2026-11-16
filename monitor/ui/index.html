@@ -105,9 +105,9 @@
         <input name="apiUrl" id="set-api" required placeholder="http://localhost:5100">
         <small>Trình giám sát chạy cùng máy với API thì để mặc định. Các dịch vụ khác được kiểm tra trên cùng máy với API.</small>
       </label>
-      <label>Mã worker
+      <label>Mã quản trị
         <input name="key" id="set-key" required autocomplete="off">
-        <small>Trùng với WORKER_KEY của API (khi chạy thử là dev-worker-key).</small>
+        <small>Trùng với ADMIN_KEY (AdminKey) của API, khác với mã của worker. Khi chạy thử là dev-admin-key.</small>
       </label>
       <div class="settings__actions">
         <button class="btn btn--quiet" value="cancel" formnovalidate>Đóng</button>

@@ -1,0 +1,45 @@
+# Profile bổ sung cho kiểu "Ảnh tối, ISO cao". Ghép lên trên profile nền "Auto-Matched Curve - ISO High"
+# (profile này của RawTherapee đã chỉnh sẵn cho ảnh nhiễu). Giống "Tự nhiên" nhưng khử nhiễu mạnh hơn.
+
+[White Balance]
+Setting=Camera
+
+[PostDemosaicSharpening]
+Enabled=true
+AutoContrast=true
+AutoRadius=true
+Contrast=20
+DeconvRadius=0.75
+DeconvRadiusOffset=0
+DeconvIterCheck=true
+DeconvIterations=20
+
+[Sharpening]
+Enabled=false
+
+[LensProfile]
+LcMode=lfauto
+UseDistortion=true
+UseVignette=true
+UseCA=false
+
+# Khử nhiễu: nhiễu màu (chroma) tự động, nhiễu sáng (luma) vừa phải để giữ chi tiết.
+[Directional Pyramid Denoising]
+Enabled=true
+Enhance=false
+Median=false
+Luma=25
+Ldetail=50
+Chroma=15
+Method=Lab
+LMethod=SLI
+CMethod=AUT
+C2Method=AUTO
+SMethod=shal
+MedMethod=soft
+RGBMethod=soft
+MethodMed=none
+Redchro=0
+Bluechro=0
+Gamma=1.7
+Passes=1

@@ -52,8 +52,10 @@ services:
     ports:
       - "127.0.0.1:5100:8080"
     environment:
-      # Mã bí mật giữa API và worker: đặt WORKER_KEY trong file .env (xem .env.example)
+      # Các mã bí mật: đặt trong file .env (xem .env.example)
       WorkerKey: ${WORKER_KEY:-dev-worker-key}
+      AdminKey: ${ADMIN_KEY:-dev-admin-key}
+      Storage__SigningKey: ${STORAGE_SIGNING_KEY:-dev-storage-signing-key-chi-dung-khi-chay-thu}
     volumes:
       - ./data/api:/data          # database + file người dùng tải lên
     restart: unless-stopped

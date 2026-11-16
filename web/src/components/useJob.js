@@ -37,7 +37,8 @@ export default function useJob() {
       }
       if (!alive.current) return;
       if (job.status === "Done") return setState({ phase: "done", id, job });
-      if (job.status === "Failed") return setState({ phase: "error", error: job.error || "Không rõ lý do." });
+      if (job.status === "Failed" || job.status === "Cancelled")
+        return setState({ phase: "error", error: job.error || "Không rõ lý do." });
       setState({
         phase: job.status === "Pending" ? "waiting" : "processing",
         id,

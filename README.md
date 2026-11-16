@@ -162,7 +162,8 @@ hỏi API:
 - Máy xử lý và dịch vụ, biểu đồ số job từ lúc mở app, con số chung.
 - Bảng có tab (Hàng chờ, Lịch sử 24 giờ, Theo công cụ), tìm kiếm (phím `/`), bộ lọc.
 - Bấm một job để xem chi tiết: **Thử lại** job lỗi, **Huỷ** job đang chờ (bấm hai lần), chép mã job.
-- Nút Cài đặt: đổi địa chỉ API và mã worker (lưu lại cho lần sau). Sáng/tối theo Windows.
+- Nút Cài đặt: đổi địa chỉ API và mã quản trị (lưu lại cho lần sau). Sáng/tối theo Windows.
+- Cột **Nguồn**: job đến từ trang web hay từ app khách nào (API v1), thuộc lô nào.
 
 Cần Rust (https://rustup.rs) và WebView2 (Windows 11 có sẵn). Trong thư mục `monitor`:
 
@@ -172,14 +173,48 @@ cargo run --release
 
 Lần đầu build mất vài phút. File chạy được: `monitor/target/release/monitor.exe` (khoảng 10 MB), chép
 đi đâu dùng cũng được. Sửa giao diện trong `monitor/ui/` thì chạy lại lệnh trên (giao diện được nhúng
-vào file .exe). Mặc định nối `http://localhost:5100` với mã `dev-worker-key`; các dịch vụ khác được
+vào file .exe). Mặc định nối `http://localhost:5100` với mã quản trị `dev-admin-key`; các dịch vụ khác được
 kiểm tra trên cùng máy với API (cổng 8080, 3000, 11434). Dịch vụ "đang chạy" nếu trả lời bất kỳ mã HTTP
 nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồm cả thời gian chờ.
+
+## Rửa ảnh RAW (worker "photo", không dùng AI)
+
+Công cụ `raw-develop` (dùng qua API v1, chưa có trên trang web): RawTherapee rửa RAW (khử nhoè quang học,
+sửa lỗi ống kính tự động, khử nhiễu với kiểu "Ảnh tối, ISO cao"), ExifTool xoá thông tin phần mềm tự ghi
+rồi chép nguyên metadata gốc của file RAW (máy, ống kính, ngày chụp, bản quyền). Kết quả JPEG chất lượng
+95 (4:4:4) hoặc TIFF 16-bit. Profile bổ sung ở `worker/handlers/photo_profiles/`.
+
+Cài trên máy chạy worker (Windows):
+1. **RawTherapee** bản Windows từ rawtherapee.com (có `rawtherapee-cli.exe`).
+2. **ExifTool** bản Windows từ exiftool.org: đổi tên `exiftool(-k).exe` thành `exiftool.exe`, để ở
+   `C:\Tools\exiftool\` (hoặc đặt biến `EXIFTOOL`).
+
+Rồi chạy worker với `WORKER_PROFILE=photo` (hoặc `all`). Docker: image worker đã có sẵn cả hai.
+
+## API v1 cho app khách
+
+Thiết kế đầy đủ: [docs/kien-truc-he-thong.md](docs/kien-truc-he-thong.md). Tóm tắt (header
+`Authorization: Bearer <khoá API>`; khoá tạo bằng cửa quản trị, chỉ hiện một lần):
+
+```
+POST /api/admin/clients {"name": "Web nhiếp ảnh"}     (X-Admin-Key) -> {"key": "ccf_..."}
+POST /v1/uploads        {"fileName": "a.arw", "size": 25639680} -> {"id", "uploadUrl", "method": "PUT"}
+PUT  <uploadUrl>        (thân request = nội dung file)
+POST /v1/batches        {"type": "raw-develop", "options": {"preset": "natural", "format": "jpg"},
+                         "uploadIds": ["..."], "externalId": "don-123"}   + header Idempotency-Key
+GET  /v1/batches/{id}   -> counts (pending/processing/done/failed/cancelled), finished, jobs
+POST /v1/batches/{id}/cancel
+GET  /v1/jobs/{id}      GET /v1/jobs/{id}/result -> {"url", "fileName", "size", "expiresAt"}
+GET  /v1/job-types
+```
+
+Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `worker`,
+`.venv\Scripts\python.exe ..\tests\smoke_v1.py` (tự bật worker main ở giữa chừng).
 
 ## Thêm một công cụ mới
 
 1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/handlers/`, trả về đường
-   dẫn file kết quả; đăng ký trong `worker/handlers/__init__.py` (nhóm `MAIN` hoặc AI).
+   dẫn file kết quả; đăng ký trong `worker/handlers/__init__.py` (nhóm `MAIN`, AI hoặc PHOTO).
 2. **API**: thêm một dòng vào `api/JobCatalog.cs` (tên, đuôi file nhận, tuỳ chọn).
 3. **Trang web**: thêm một dòng vào `web/src/catalog.js` với `job` trùng tên loại job.
    Công cụ chạy trên trình duyệt thì viết component trong `web/src/tools/` và khai báo `client`.
@@ -189,7 +224,11 @@ nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồ
 | Biến | Ở đâu | Mặc định | Ý nghĩa |
 |---|---|---|---|
 | `WORKER_KEY` / `WorkerKey` | .env, API, worker | `dev-worker-key` | Mã bí mật giữa API và worker. **Đổi trước khi mở ra internet** |
-| `WORKER_PROFILE` | worker | `main` | `main`, `ai` hoặc `all` |
+| `ADMIN_KEY` / `AdminKey` | .env, API, app giám sát | `dev-admin-key` | Mã cửa quản trị (app giám sát, tạo khoá app khách). **Đổi trước khi mở ra internet** |
+| `STORAGE_SIGNING_KEY` / `Storage:SigningKey` | .env, API | (dev có sẵn) | Khoá ký link tải lên/tải về của API v1. **Đổi trước khi mở ra internet** |
+| `Upload:MaxBytes` | API | 1 GB | Dung lượng tối đa mỗi file tải lên qua API v1 (form trang web vẫn 100 MB) |
+| `WORKER_PROFILE` | worker | `main` | `main`, `ai`, `photo` hoặc `all` |
+| `RAWTHERAPEE_CLI`, `EXIFTOOL` | worker photo | tự tìm (PATH, thư mục cài chuẩn) | Đường dẫn chương trình rửa ảnh RAW |
 | `API_URL`, `GOTENBERG_URL`, `STIRLING_URL` | worker | localhost:5100 / 3000 / 8080 | Địa chỉ các dịch vụ |
 | `OLLAMA_URL`, `OLLAMA_MODEL` | worker AI | localhost:11434, `qwen2.5:7b` | Mô hình cho Tóm tắt/Dịch |
 | `WHISPER_MODEL` | worker AI | `large-v3-turbo` (GPU) / `small` (CPU) | Mô hình chép lời |
@@ -199,7 +238,7 @@ nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồ
 | `PDF2ZH_BIN` | worker AI | tự tìm `.venv-pdf2zh` | Chương trình pdf2zh_next (dịch PDF giữ bố cục) |
 | `VIENEU_PRECISION` | worker AI | `fp32` | `int8` để đọc nhanh hơn trên CPU hỗ trợ VNNI |
 | `STIRLING_API_KEY` | worker | (không có) | Chỉ cần khi bật lại đăng nhập Stirling |
-| `DataDir` | API | `api/data` | Nơi lưu database và file tải lên |
+| `DataDir` | API | `api/data` | Nơi lưu database (`jobs.db`) và kho file (`files/`) |
 
 ## Các endpoint của API
 
@@ -212,9 +251,12 @@ kèm `attempt` = số lượt), `GET /api/jobs/{id}/input`, `POST /api/jobs/{id}
 (gia hạn giữ job), `POST /api/jobs/{id}/complete` (form `file`, `attempt`), `POST /api/jobs/{id}/fail`
 (JSON `error`, `attempt`).
 
-Cho trình giám sát (header `X-Worker-Key`): `GET /api/admin/overview` (số job theo trạng thái, theo
-công cụ, worker, job đang chạy, hàng chờ, 100 job vừa kết thúc, dung lượng file),
-`POST /api/admin/jobs/{id}/retry` (job lỗi → hàng chờ), `POST /api/admin/jobs/{id}/cancel` (job đang chờ → lỗi).
+Cho trình giám sát (header `X-Admin-Key`): `GET /api/admin/overview` (số job theo trạng thái, theo
+công cụ, worker, job đang chạy, hàng chờ, 100 job vừa kết thúc, nguồn job, dung lượng file),
+`POST /api/admin/jobs/{id}/retry` (job lỗi/đã huỷ → hàng chờ), `POST /api/admin/jobs/{id}/cancel` (job đang
+chờ → đã huỷ), `POST /api/admin/clients`, `GET /api/admin/clients`, `POST /api/admin/clients/{id}/disable`.
+
+Cho app khách: xem mục "API v1 cho app khách" ở trên.
 
 ## Lưu ý
 

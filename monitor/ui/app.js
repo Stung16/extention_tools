@@ -6,10 +6,13 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- Cài đặt (lưu trong máy, lỡ không lưu được vẫn chạy với mặc định) ----------
 
-const DEFAULTS = { apiUrl: "http://localhost:5100", key: "dev-worker-key" };
+const DEFAULTS = { apiUrl: "http://localhost:5100", key: "dev-admin-key" };
 function loadSettings() {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem("monitor.settings") || "{}") };
+    const saved = { ...DEFAULTS, ...JSON.parse(localStorage.getItem("monitor.settings") || "{}") };
+    // Bản cũ dùng mã worker cho cửa quản trị; giờ cửa quản trị có mã riêng.
+    if (saved.key === "dev-worker-key") saved.key = DEFAULTS.key;
+    return saved;
   } catch {
     return { ...DEFAULTS };
   }
@@ -47,8 +50,14 @@ function serviceTargets() {
 // ---------- Định dạng ----------
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const WORKER_NAMES = { main: "Máy chính", ai: "Máy AI" };
+const WORKER_NAMES = { main: "Máy chính", ai: "Máy AI", photo: "Máy ảnh RAW" };
 const workerName = (w) => WORKER_NAMES[w] || w;
+const STATUS_BADGE = {
+  Done: `<span class="badge badge--done">Xong</span>`,
+  Failed: `<span class="badge badge--fail">Lỗi</span>`,
+  Cancelled: `<span class="badge badge--muted">Đã huỷ</span>`,
+};
+const statusBadge = (s) => STATUS_BADGE[s] || esc(s);
 
 function dur(s) {
   s = Math.max(0, Math.round(s));
@@ -253,7 +262,7 @@ function renderBelt() {
       <li class="ticket" data-job="${esc(j.id)}">
         <span class="ticket__tool">${esc(j.label)}</span>
         <span class="ticket__file" title="${esc(j.name)}">${esc(j.name)}</span>
-        <span class="ticket__side">${j.status === "Done" ? `<span class="badge badge--done">Xong</span>` : `<span class="badge badge--fail">Lỗi</span>`}<br>${ago(j.agoSeconds + sinceFetch())}</span>
+        <span class="ticket__side">${statusBadge(j.status)}<br>${ago(j.agoSeconds + sinceFetch())}</span>
       </li>`).join("")
     : `<li class="station__empty">Chưa có job nào kết thúc trong 24 giờ.</li>`;
 }
@@ -346,7 +355,7 @@ function setTab(tab) {
 function renderFilters() {
   const opts = {
     queue: [],
-    history: [["all", "Tất cả"], ["done", "Xong"], ["fail", "Lỗi"]],
+    history: [["all", "Tất cả"], ["done", "Xong"], ["fail", "Lỗi"], ["cancel", "Đã huỷ"]],
     tools: [["active", "Có job"], ["all", "Tất cả công cụ"]],
   }[state.tab];
   const cur = state.filter[state.tab];
@@ -370,9 +379,10 @@ function renderTable() {
   if (state.tab === "queue") {
     const rows = ov.waiting.filter(matches);
     html = rows.length ? `
-      <table><thead><tr><th>Công cụ</th><th>File</th><th>Máy</th><th class="num">Đã chờ</th><th>Ghi chú</th></tr></thead><tbody>
+      <table><thead><tr><th>Công cụ</th><th>File</th><th>Nguồn</th><th>Máy</th><th class="num">Đã chờ</th><th>Ghi chú</th></tr></thead><tbody>
       ${rows.map((j) => `<tr data-job="${esc(j.id)}"${sel(j.id)}>
         <td>${esc(j.label)}</td><td class="cell-file" title="${esc(j.name)}">${esc(j.name)}</td>
+        <td class="cell-muted">${esc(j.source)}</td>
         <td>${workerName(j.worker)}</td><td class="num">${dur(j.waitSeconds + sinceFetch())}</td>
         <td>${!online(j.worker) ? `<span class="cell-alert">Máy xử lý đang tắt</span>` : j.attempts > 0 ? `<span class="cell-warn">Bị dừng giữa chừng ${j.attempts} lần, chờ làm lại</span>` : ""}</td>
       </tr>`).join("")}</tbody></table>
@@ -380,17 +390,21 @@ function renderTable() {
       : state.search ? emptyState("Không tìm thấy", "Không có job chờ nào khớp với từ khoá.") : emptyState("Hàng chờ trống", "Job mới gửi lên sẽ hiện ở đây.");
   } else if (state.tab === "history") {
     const f = state.filter.history;
-    const rows = ov.recent.filter((j) => (f === "all" || (f === "done") === (j.status === "Done")) && matches(j));
+    const wanted = { done: "Done", fail: "Failed", cancel: "Cancelled" }[f];
+    const rows = ov.recent.filter((j) => (f === "all" || j.status === wanted) && matches(j));
     html = rows.length ? `
-      <table><thead><tr><th>Lúc</th><th>Công cụ</th><th>File</th><th>Kết quả</th><th class="num">Thời gian</th><th>Lỗi</th></tr></thead><tbody>
+      <table><thead><tr><th>Lúc</th><th>Công cụ</th><th>File</th><th>Nguồn</th><th>Kết quả</th><th class="num">Thời gian</th><th>Lỗi</th></tr></thead><tbody>
       ${rows.map((j) => `<tr data-job="${esc(j.id)}"${sel(j.id)}>
         <td class="cell-muted">${ago(j.agoSeconds + sinceFetch())}</td><td>${esc(j.label)}</td>
         <td class="cell-file" title="${esc(j.name)}">${esc(j.name)}</td>
-        <td>${j.status === "Done" ? `<span class="badge badge--done">Xong</span>` : `<span class="badge badge--fail">Lỗi</span>`}</td>
+        <td class="cell-muted">${esc(j.source)}</td>
+        <td>${statusBadge(j.status)}</td>
         <td class="num">${dur(j.seconds)}${j.attempts > 1 ? `<br><span class="cell-muted">${j.attempts} lượt</span>` : ""}</td>
         <td class="cell-error" title="${esc(j.error)}">${esc(j.error)}</td>
       </tr>`).join("")}</tbody></table>`
-      : emptyState(f === "fail" ? "Không có job lỗi" : "Chưa có job nào", f === "fail" ? "Không có job nào lỗi trong 24 giờ qua." : "Job xong hoặc lỗi trong 24 giờ qua sẽ hiện ở đây.");
+      : f === "fail" ? emptyState("Không có job lỗi", "Không có job nào lỗi trong 24 giờ qua.")
+      : f === "cancel" ? emptyState("Không có job bị huỷ", "Không có job nào bị huỷ trong 24 giờ qua.")
+      : emptyState("Chưa có job nào", "Job xong, lỗi hoặc bị huỷ trong 24 giờ qua sẽ hiện ở đây.");
   } else {
     const rows = ov.types
       .filter((t) => (state.filter.tools === "all" || t.pending + t.processing + t.done24h + t.failed24h > 0) && matches(t))
@@ -420,7 +434,7 @@ function findJob(id) {
   const w = ov.waiting.find((j) => j.id === id);
   if (w) return { ...w, kind: "wait" };
   const d = ov.recent.find((j) => j.id === id);
-  if (d) return { ...d, kind: d.status === "Done" ? "done" : "fail" };
+  if (d) return { ...d, kind: { Done: "done", Failed: "fail", Cancelled: "cancel" }[d.status] || "fail" };
   return null;
 }
 
@@ -458,14 +472,16 @@ function renderDrawer() {
     run: `<span class="badge badge--run">Đang xử lý</span>`,
     done: `<span class="badge badge--done">Xong</span>`,
     fail: `<span class="badge badge--fail">Lỗi</span>`,
+    cancel: `<span class="badge badge--muted">Đã huỷ</span>`,
   }[j.kind];
-  const rows = [["Trạng thái", status], ["Máy xử lý", esc(workerName(j.worker))]];
+  const rows = [["Trạng thái", status], ["Nguồn", esc(j.source)], ["Máy xử lý", esc(workerName(j.worker))]];
+  if (j.batchId) rows.push(["Lô", `<code>${esc(j.batchId.slice(0, 8))}</code>`]);
   if (j.kind === "wait") rows.push(["Đã chờ", dur(j.waitSeconds + sinceFetch())], ["Lượt trước", j.attempts ? `Bị dừng giữa chừng ${j.attempts} lần` : "Chưa chạy lần nào"]);
   if (j.kind === "run") rows.push(["Đã chạy", dur(j.seconds + sinceFetch())], ["Lượt", String(j.attempt)]);
-  if (j.kind === "done" || j.kind === "fail") rows.push(["Kết thúc", ago(j.agoSeconds + sinceFetch())], ["Tổng thời gian", dur(j.seconds)], ["Số lượt", String(j.attempts)]);
+  if (j.kind === "done" || j.kind === "fail" || j.kind === "cancel") rows.push(["Kết thúc", ago(j.agoSeconds + sinceFetch())], ["Tổng thời gian", dur(j.seconds)], ["Số lượt", String(j.attempts)]);
 
   let actions = "";
-  if (j.kind === "fail") actions = `<button class="btn btn--primary" type="button" data-act="retry">Thử lại job này</button>`;
+  if (j.kind === "fail" || j.kind === "cancel") actions = `<button class="btn btn--primary" type="button" data-act="retry">Thử lại job này</button>`;
   if (j.kind === "wait") {
     actions = state.confirming
       ? `<button class="btn btn--danger" type="button" data-act="cancel">Bấm lần nữa để huỷ</button><button class="btn" type="button" data-act="keep">Không huỷ</button>`
@@ -474,7 +490,8 @@ function renderDrawer() {
   const note = {
     run: "Job đang chạy không huỷ được giữa chừng. Nếu máy xử lý dừng, job tự được giao lại sau khi hết hạn giữ chỗ.",
     fail: "Thử lại sẽ đưa job về cuối hàng chờ, dùng lại file gốc. Công cụ có mật khẩu sẽ thiếu mật khẩu khi thử lại.",
-    wait: "Huỷ thì job chuyển sang lỗi với lý do “bị huỷ bởi người quản lý”.",
+    wait: "Huỷ thì job chuyển sang “đã huỷ”, app gửi job (nếu có) sẽ thấy lý do.",
+    cancel: "Thử lại sẽ đưa job về cuối hàng chờ, dùng lại file gốc.",
     done: "",
   }[j.kind];
 

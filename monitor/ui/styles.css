@@ -251,6 +251,7 @@ svg { flex: none; }
 .badge--fail { background: var(--fail-bg); color: var(--fail); }
 .badge--wait { background: var(--wait-bg); color: var(--wait); }
 .badge--run { background: var(--run-bg); color: var(--run); }
+.badge--muted { background: var(--surface-2); color: var(--ink-2); }
 
 /* ---------- Phần dưới: cột bên + bảng ---------- */
 
