@@ -25,4 +25,12 @@ public class Job
     public string Options { get; set; } = "{}";     // tuỳ chọn người dùng chọn, dạng JSON, ví dụ {"level":"5"}
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // Số lần job đã được giao cho worker (lượt 1, 2, 3...). Worker gửi kèm số lượt khi báo xong/lỗi,
+    // để worker của lượt cũ (bị coi là đã chết) không ghi đè kết quả của lượt mới.
+    public int Attempts { get; set; }
+
+    // Hạn giữ job: worker đang xử lý phải gia hạn (gửi "tín hiệu sống") trước hạn này.
+    // Quá hạn mà không gia hạn -> coi như worker đã chết, job được trả về hàng chờ.
+    public DateTime? LeaseUntil { get; set; }
 }

@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -33,6 +34,10 @@ API_URL = os.environ.get("API_URL", "http://localhost:5100").rstrip("/")
 WORKER_KEY = os.environ.get("WORKER_KEY", "dev-worker-key")
 PROFILE = os.environ.get("WORKER_PROFILE", "main")
 POLL_SECONDS = 3
+# Trong lúc xử lý, cứ 30 giây báo API "vẫn đang làm" (API giữ job 2 phút mỗi lần gia hạn).
+HEARTBEAT_SECONDS = float(os.environ.get("HEARTBEAT_SECONDS", "30"))
+# Gửi kết quả lỗi (mất mạng, API đang khởi động lại) thì thử lại, chờ 5, 10, 20, 40 giây.
+UPLOAD_TRIES = 5
 
 # Windows mặc định không ghi log bằng UTF-8, chữ tiếng Việt sẽ bị lỗi. Ép dùng UTF-8.
 sys.stdout.reconfigure(encoding="utf-8")
@@ -55,6 +60,75 @@ def fetch_next_job():
         return None
     r.raise_for_status()
     return r.json()
+
+
+class JobTakenBack(Exception):
+    """API không còn giao job này cho mình (quá hạn nên đã trả về hàng chờ cho lượt khác)."""
+
+
+class Heartbeat:
+    """Chạy một luồng phụ, cứ HEARTBEAT_SECONDS giây gửi "tín hiệu sống" cho job đang làm.
+
+    Dùng:  with Heartbeat(job_id, attempt): ...xử lý...
+    Worker chết (mất điện, bị tắt) thì luồng này cũng chết theo, API thôi nhận tín hiệu
+    và sau 2 phút sẽ giao job cho lượt khác.
+    """
+
+    def __init__(self, job_id, attempt):
+        self.job_id = job_id
+        self.attempt = attempt
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self):
+        while not self._stop.wait(HEARTBEAT_SECONDS):
+            try:
+                # Không dùng chung Session với luồng chính (requests.Session không an toàn khi dùng nhiều luồng).
+                r = requests.post(f"{API_URL}/api/jobs/{self.job_id}/heartbeat",
+                                  params={"attempt": self.attempt},
+                                  headers={"X-Worker-Key": WORKER_KEY}, timeout=15)
+                if r.status_code == 409:
+                    log.warning("Job %s đã được giao cho lượt khác, thôi gửi tín hiệu sống.", self.job_id)
+                    return
+            except requests.RequestException as e:
+                # API tạm tắt: cứ thử lại lần sau. Job còn hạn 2 phút nên lỡ vài lần không sao.
+                log.warning("Không gửi được tín hiệu sống cho job %s: %s", self.job_id, e)
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+
+
+def upload_result(job_id, attempt, output_path, name):
+    """Gửi file kết quả lên API. Lỗi tạm thời (mạng, API khởi động lại, lỗi 5xx) thì thử lại."""
+    for n in range(1, UPLOAD_TRIES + 1):
+        try:
+            with open(output_path, "rb") as f:
+                r = api.post(
+                    f"{API_URL}/api/jobs/{job_id}/complete",
+                    files={"file": (output_path.name, f)},
+                    data={"attempt": attempt, **({"name": name} if name else {})},
+                    timeout=600,
+                )
+        except requests.RequestException as e:
+            problem = str(e)
+        else:
+            if r.status_code == 409:
+                raise JobTakenBack(r.text)
+            if r.status_code < 500:
+                r.raise_for_status()  # lỗi 4xx khác (thiếu file...) thì báo lỗi luôn, thử lại cũng vậy
+                return
+            problem = f"API trả lỗi {r.status_code}"
+
+        if n == UPLOAD_TRIES:
+            raise RuntimeError(f"Không gửi được kết quả lên API sau {n} lần: {problem}")
+        wait = 5 * 2 ** (n - 1)
+        log.warning("Gửi kết quả job %s lỗi (%s), thử lại sau %d giây (lần %d/%d)",
+                    job_id, problem, wait, n, UPLOAD_TRIES)
+        time.sleep(wait)
 
 
 def process(job):
@@ -82,15 +156,8 @@ def process(job):
 
         output_path = handler(input_path, work_dir, job.get("options") or {})
 
-        with open(output_path, "rb") as f:
-            r = api.post(
-                f"{API_URL}/api/jobs/{job_id}/complete",
-                files={"file": (output_path.name, f)},
-                # Job dạng link: tên file kết quả (ví dụ tên video) dùng làm tên khi người dùng tải về.
-                data={"name": output_path.name} if input_path is None else None,
-                timeout=600,
-            )
-        r.raise_for_status()
+        # Job dạng link: tên file kết quả (ví dụ tên video) dùng làm tên khi người dùng tải về.
+        upload_result(job_id, job["attempt"], output_path, output_path.name if input_path is None else None)
 
 
 def safe_for_log(options):
@@ -98,10 +165,14 @@ def safe_for_log(options):
     return {k: ("***" if "password" in k.lower() else v) for k, v in options.items()}
 
 
-def report_failure(job_id, error):
+def report_failure(job_id, attempt, error):
     try:
-        api.post(f"{API_URL}/api/jobs/{job_id}/fail", json={"error": str(error)[:1000]}, timeout=30)
+        r = api.post(f"{API_URL}/api/jobs/{job_id}/fail",
+                     json={"error": str(error)[:1000], "attempt": attempt}, timeout=30)
+        if r.status_code == 409:
+            log.warning("Job %s đã được giao cho lượt khác, không báo lỗi nữa.", job_id)
     except requests.RequestException as e:
+        # Không báo được thì thôi: job hết hạn giữ sau 2 phút, API sẽ tự giao lại.
         log.error("Không báo lỗi lên API được: %s", e)
 
 
@@ -121,15 +192,18 @@ def main():
             time.sleep(POLL_SECONDS)
             continue
 
-        log.info("Nhận job %s (%s, %s, tuỳ chọn %s)",
-                 job["id"], job["type"], job["originalName"], safe_for_log(job.get("options") or {}))
+        log.info("Nhận job %s lượt %d (%s, %s, tuỳ chọn %s)", job["id"], job["attempt"],
+                 job["type"], job["originalName"], safe_for_log(job.get("options") or {}))
         started = time.time()
         try:
-            process(job)
+            with Heartbeat(job["id"], job["attempt"]):
+                process(job)
             log.info("Xong job %s sau %.1f giây", job["id"], time.time() - started)
+        except JobTakenBack:
+            log.warning("Bỏ kết quả job %s: job đã được giao cho lượt khác.", job["id"])
         except Exception as e:
             log.exception("Job %s lỗi", job["id"])
-            report_failure(job["id"], e)
+            report_failure(job["id"], job["attempt"], e)
 
 
 if __name__ == "__main__":

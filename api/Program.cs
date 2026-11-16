@@ -45,6 +45,13 @@ var jobTypes = JobCatalog.Types;
 var lastSeen = new ConcurrentDictionary<string, DateTime>();
 bool IsOnline(string type) => lastSeen.TryGetValue(type, out var t) && DateTime.UtcNow - t < TimeSpan.FromSeconds(30);
 
+// Giữ job: worker đang xử lý gửi "tín hiệu sống" mỗi 30 giây, mỗi lần gia hạn thêm 2 phút.
+// Quá hạn mà không gia hạn (mất điện, tắt worker, chương trình sập) thì job được trả về hàng chờ.
+// Một job làm sập worker quá 3 lần (ví dụ file quá nặng làm tràn bộ nhớ GPU) thì báo lỗi luôn, không thử nữa.
+// (Đổi được qua cấu hình JobLeaseSeconds, ví dụ để chạy thử nhanh; worker đổi HEARTBEAT_SECONDS cho khớp.)
+var leaseTime = TimeSpan.FromSeconds(app.Configuration.GetValue("JobLeaseSeconds", 120));
+const int MaxAttempts = 3;
+
 var contentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
 
 string FilePath(string name) => Path.Combine(filesDir, name);
@@ -66,6 +73,37 @@ IEnumerable<string> SecretNames(Job job) =>
 
 // Job xong hoặc lỗi thì không cần mật khẩu nữa: xoá khỏi database, không để nằm lại.
 void ForgetSecrets(Job job) => job.Options = JsonSerializer.Serialize(ReadOptions(job, hideSecrets: true));
+
+// Tìm job "đang xử lý" đã quá hạn giữ (worker không còn gửi tín hiệu sống) và xử lý lại.
+// Gọi mỗi khi có worker hỏi việc: job bị bỏ rơi chỉ có ý nghĩa khi có worker sẵn sàng làm lại.
+async Task RecoverAbandonedJobs(AppDb db)
+{
+    var now = DateTime.UtcNow;
+
+    // Còn lượt: trả về hàng chờ. Điều kiện nằm ngay trong câu lệnh UPDATE, nên nếu worker vừa kịp
+    // gia hạn thì job không bị trả về nhầm.
+    await db.Jobs
+        .Where(j => j.Status == JobStatus.Processing && j.LeaseUntil < now && j.Attempts < MaxAttempts)
+        .ExecuteUpdateAsync(s => s
+            .SetProperty(j => j.Status, JobStatus.Pending)
+            .SetProperty(j => j.LeaseUntil, (DateTime?)null)
+            .SetProperty(j => j.UpdatedAt, now));
+
+    // Hết lượt: báo lỗi cho người dùng (nạp từng job để xoá được mật khẩu trong tuỳ chọn).
+    var dead = await db.Jobs
+        .Where(j => j.Status == JobStatus.Processing && j.LeaseUntil < now)
+        .ToListAsync();
+    foreach (var job in dead)
+    {
+        job.Status = JobStatus.Failed;
+        job.Error = $"Máy xử lý bị dừng giữa chừng {job.Attempts} lần với file này. " +
+                    "File có thể quá nặng; hãy thử file nhỏ hơn hoặc thử lại sau.";
+        job.LeaseUntil = null;
+        job.UpdatedAt = now;
+        ForgetSecrets(job);
+    }
+    if (dead.Count > 0) await db.SaveChangesAsync();
+}
 
 // ---------- Trang web ----------
 
@@ -190,6 +228,8 @@ jobs.MapGet("/{id:guid}", async (Guid id, AppDb db) =>
             OutputExt = job.OutputFile is null ? null : Path.GetExtension(job.OutputFile),
             // Máy xử lý loại job này có đang bật không (để trang báo khi phải chờ lâu).
             WorkerOnline = IsOnline(job.Type),
+            // Lượt xử lý hiện tại (lớn hơn 1 nghĩa là lần trước máy xử lý bị dừng giữa chừng, đang làm lại).
+            job.Attempts,
             job.CreatedAt, job.UpdatedAt,
         });
 });
@@ -230,22 +270,42 @@ worker.MapGet("/next", async (string? types, AppDb db) =>
     var wanted = (types ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     foreach (var t in wanted) lastSeen[t] = DateTime.UtcNow;
 
+    await RecoverAbandonedJobs(db);
+
     var query = db.Jobs.Where(j => j.Status == JobStatus.Pending);
     if (wanted.Length > 0) query = query.Where(j => wanted.Contains(j.Type));
     var job = await query.OrderBy(j => j.CreatedAt).FirstOrDefaultAsync();
     if (job is null) return Results.NoContent();
 
-    // Chỉ đổi khi job VẪN đang Pending. Nếu có 2 worker cùng hỏi một lúc,
+    // Chỉ đổi khi job VẪN đang Pending (và chưa ai nhận lượt này). Nếu có 2 worker cùng hỏi một lúc,
     // chỉ một bên đổi được (changed = 1), bên kia nhận changed = 0.
+    var attempt = job.Attempts + 1;
+    var now = DateTime.UtcNow;
+    var leaseUntil = now.Add(leaseTime);
     var changed = await db.Jobs
-        .Where(j => j.Id == job.Id && j.Status == JobStatus.Pending)
+        .Where(j => j.Id == job.Id && j.Status == JobStatus.Pending && j.Attempts == job.Attempts)
         .ExecuteUpdateAsync(s => s
             .SetProperty(j => j.Status, JobStatus.Processing)
-            .SetProperty(j => j.UpdatedAt, DateTime.UtcNow));
+            .SetProperty(j => j.Attempts, attempt)
+            .SetProperty(j => j.LeaseUntil, leaseUntil)
+            .SetProperty(j => j.UpdatedAt, now));
     if (changed == 0) return Results.NoContent();
 
     var input = jobTypes.TryGetValue(job.Type, out var info) ? info.Input : "file";
-    return Results.Ok(new { job.Id, job.Type, job.OriginalName, Input = input, Options = ReadOptions(job) });
+    return Results.Ok(new { job.Id, job.Type, job.OriginalName, Input = input, Attempt = attempt, Options = ReadOptions(job) });
+});
+
+// Worker báo "tôi vẫn đang làm job này" (?attempt=số lượt), để gia hạn giữ job.
+// 409 = job không còn thuộc lượt này nữa (đã bị trả về hàng chờ, hoặc đã xong/lỗi): worker nên bỏ.
+worker.MapPost("/{id:guid}/heartbeat", async (Guid id, int attempt, AppDb db) =>
+{
+    var leaseUntil = DateTime.UtcNow.Add(leaseTime);
+    var changed = await db.Jobs
+        .Where(j => j.Id == id && j.Status == JobStatus.Processing && j.Attempts == attempt)
+        .ExecuteUpdateAsync(s => s.SetProperty(j => j.LeaseUntil, leaseUntil));
+    return changed == 1
+        ? Results.Ok()
+        : Results.Conflict(new { error = "Job không còn thuộc lượt xử lý này." });
 });
 
 // Worker tải file đầu vào.
@@ -257,15 +317,19 @@ worker.MapGet("/{id:guid}/input", async (Guid id, AppDb db) =>
         : Results.File(FilePath(job.InputFile), "application/octet-stream", job.OriginalName);
 });
 
-// Worker báo xong, gửi kèm file kết quả (form, trường "file").
+// Worker báo xong, gửi kèm file kết quả (form: trường "file", và "attempt" là số lượt worker nhận được).
 worker.MapPost("/{id:guid}/complete", async (Guid id, HttpRequest request, AppDb db) =>
 {
     var job = await db.Jobs.FindAsync(id);
     if (job is null) return Results.NotFound();
-    if (job.Status != JobStatus.Processing)
-        return Results.Conflict(new { error = $"Job không ở trạng thái Processing (đang là {job.Status})." });
 
     var form = await request.ReadFormAsync();
+    if (!int.TryParse(form["attempt"], out var attempt))
+        return Results.BadRequest(new { error = "Thiếu số lượt (attempt)." });
+    // Worker của lượt cũ (đã bị coi là chết) gửi muộn thì không nhận, tránh ghi đè lượt mới.
+    if (job.Status != JobStatus.Processing || job.Attempts != attempt)
+        return Results.Conflict(new { error = $"Job không còn thuộc lượt {attempt} (đang là {job.Status}, lượt {job.Attempts})." });
+
     var file = form.Files["file"];
     if (file is null || file.Length == 0) return Results.BadRequest(new { error = "Thiếu file kết quả." });
 
@@ -280,20 +344,25 @@ worker.MapPost("/{id:guid}/complete", async (Guid id, HttpRequest request, AppDb
         job.OriginalName = Path.GetFileName(name)[..Math.Min(Path.GetFileName(name).Length, 120)];
 
     job.Status = JobStatus.Done;
+    job.LeaseUntil = null;
     job.UpdatedAt = DateTime.UtcNow;
     ForgetSecrets(job);
     await db.SaveChangesAsync();
     return Results.Ok();
 });
 
-// Worker báo lỗi.
+// Worker báo lỗi (JSON: {"error": "...", "attempt": số lượt}).
 worker.MapPost("/{id:guid}/fail", async (Guid id, FailRequest body, AppDb db) =>
 {
     var job = await db.Jobs.FindAsync(id);
     if (job is null) return Results.NotFound();
+    // Giống /complete: chỉ nhận từ đúng lượt đang xử lý, không ghi đè job đã xong.
+    if (job.Status != JobStatus.Processing || job.Attempts != body.Attempt)
+        return Results.Conflict(new { error = $"Job không còn thuộc lượt {body.Attempt} (đang là {job.Status}, lượt {job.Attempts})." });
 
     job.Status = JobStatus.Failed;
     job.Error = body.Error;
+    job.LeaseUntil = null;
     job.UpdatedAt = DateTime.UtcNow;
     ForgetSecrets(job);
     await db.SaveChangesAsync();
@@ -324,4 +393,4 @@ app.MapFallback(async context =>
 
 app.Run();
 
-record FailRequest(string Error);
+record FailRequest(string Error, int Attempt);

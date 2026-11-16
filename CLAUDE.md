@@ -44,6 +44,11 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai", Input "file"/"url",
     UrlPattern). JobOption: Kind choice/text/password, Pattern, MaxLength, Required, Hint.
   - /next?types=a,b: worker chỉ nhận loại nó làm; API ghi lastSeen theo loại (online nếu < 30 giây).
+  - Giữ job (lease): Job.Attempts + Job.LeaseUntil. /next tăng Attempts, đặt hạn 2 phút (JobLeaseSeconds),
+    trả "attempt". Worker gửi POST /{id}/heartbeat?attempt=n mỗi 30 giây (HEARTBEAT_SECONDS, luồng phụ).
+    Mỗi lần /next, API trả job quá hạn về Pending; quá 3 lượt thì Failed. /complete (form "attempt") và
+    /fail (JSON "attempt") từ chối 409 nếu sai lượt hoặc không còn Processing. Worker thử gửi kết quả
+    5 lần (5/10/20/40 giây) khi lỗi mạng/5xx; 409 thì bỏ kết quả. Lỗi do handler báo thì KHÔNG thử lại.
   - Kind "password": xoá khỏi Jobs.Options khi complete/fail, ẩn ở GET /api/jobs/{id}.
   - Job dạng url: InputFile="", link ở Options["url"], tên tải về lấy từ form "name" worker gửi.
   - Tên tải về: tên gốc + đuôi kết quả; cùng đuôi với file gốc thì thêm "-ket-qua".
@@ -124,6 +129,7 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
 - Docker vẫn lưu ở ổ C (C:\Users\admin\AppData\Local\Docker\wsl\disk\docker_data.vhdx ~38 GB, ổ C còn ~6 GB):
   muốn build image AI trên máy này phải chuyển "Disk image location" của Docker Desktop sang ổ D trước.
 - Máy GPU: build và thử profile ai; thử chép lời tiếng Việt (cân nhắc PhoWhisper đổi sang CTranslate2).
-- Job bị kẹt Processing khi worker tắt giữa chừng, retry, xoá file cũ (FAQ không hứa tự xoá), EF Core
+- Đã làm (16/11/2026): job kẹt khi worker tắt giữa chừng (lease + heartbeat, thử tắt worker thật: lượt 2 xong).
+  Còn: bỏ container_name của worker để --scale, xoá file cũ (FAQ không hứa tự xoá), EF Core
   migrations, xem trước dung lượng từng mức nén, mở ra internet (HTTPS, chống lạm dụng, đăng nhập, gói
   trả phí), tên thương hiệu thật.
