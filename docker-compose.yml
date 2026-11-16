@@ -14,6 +14,11 @@ services:
     volumes:
       - ./data/stirling/tessdata:/usr/share/tessdata   # gói ngôn ngữ cho OCR
       - ./data/stirling/configs:/configs               # cài đặt của Stirling
+    environment:
+      # Tắt đăng nhập để worker gọi API được mà không cần API key.
+      # An toàn vì cổng chỉ mở trên 127.0.0.1 (chỉ máy này vào được).
+      # Nếu sau này mở Stirling ra mạng thì phải bật lại.
+      SECURITY_ENABLELOGIN: "false"
     restart: unless-stopped     # máy khởi động lại thì tự chạy lại
 
   # Chuyển Word, Excel, PowerPoint, HTML sang PDF qua API

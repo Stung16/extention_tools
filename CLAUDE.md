@@ -52,7 +52,9 @@ Lý do: người dùng đang học .NET; worker Python gọi thẳng được c�
   Cổng 5100. WorkerKey lấy từ cấu hình (bản dev: "dev-worker-key").
 - worker/: main.py (vòng lặp polling), handlers/ (mỗi loại job một file, đăng ký trong
   handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
-- Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert).
+- Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert);
+  "compress-pdf" (gọi Stirling POST /api/v1/misc/compress-pdf, trường fileInput,
+  optimizeLevel cố định 5; nếu kết quả không nhỏ hơn thì trả lại file gốc).
   Danh sách loại job (tên hiển thị + đuôi file) khai báo trong biến jobTypes ở api/Program.cs;
   thêm handler mới ở worker thì thêm một dòng ở đó, trang web tự hiện công cụ mới.
 - Trang web: api/wwwroot/index.html, HTML + JS thuần (chưa dùng framework), API phục vụ
@@ -97,9 +99,12 @@ không cài driver bên trong WSL.
   PDFMathTranslate là AGPL-3.0; Stirling-PDF có một số tính năng độc quyền;
   ACE-Step (MIT) và Wan 2.2 (Apache 2.0) dùng thương mại được.
 - Mạng gia đình: tốc độ upload thấp, file video lớn có thể tải lên/xuống lâu.
-- Stirling-PDF bản mới bật đăng nhập mặc định (đã xác minh 16/11/2026): tài khoản mặc định
-  hiện ngay trên trang /login, phải đổi mật khẩu sau lần đăng nhập đầu. Khi worker gọi
-  API của Stirling sẽ cần xử lý xác thực (API key) hoặc tắt đăng nhập.
+- Stirling-PDF (bản 3.3.0) mặc định bật đăng nhập; API khi đó đòi header X-API-KEY (key riêng
+  của từng tài khoản). Bản này không còn cấu hình key chung (customGlobalAPIKey) như bản cũ.
+  Đã chọn tắt đăng nhập bằng biến môi trường SECURITY_ENABLELOGIN=false trong
+  docker-compose.yml (an toàn vì chỉ mở trên 127.0.0.1). Nếu mở Stirling ra mạng thì phải
+  bật lại và đặt STIRLING_API_KEY cho worker (handler đã hỗ trợ sẵn).
+- Tài liệu API của Stirling: http://localhost:8080/v1/api-docs (JSON; /v3/api-docs trả về HTML).
 - Image Stirling-PDF lấy từ docker.stirlingpdf.com, tải lần đầu khá chậm (hơn 10 phút).
 - Các công cụ AI sau này thêm vào docker-compose.yml với `profiles: [gpu]` để máy không có GPU vẫn chạy phần còn lại.
 
@@ -117,6 +122,8 @@ không cài driver bên trong WSL.
 - Trang web upload đã chạy thử trên trình duyệt (16/11/2026): chặn sai đuôi file, Word
   thành PDF, tên file tiếng Việt giữ đúng khi tải về, giao diện điện thoại không tràn ngang;
   tắt worker thì job nằm chờ, bật lại thì tự xử lý và trang tự chuyển sang "Xong!".
+- Handler nén PDF đã chạy thử (16/11/2026): PDF 5,8MB còn 340KB qua API + worker, chữ tiếng
+  Việt giữ nguyên; nhánh "kết quả to hơn thì trả file gốc" và nhánh 401 thử bằng giả lập.
 - Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
   chứ không báo lỗi.
 
@@ -124,7 +131,8 @@ không cài driver bên trong WSL.
 
 1. Clone sang máy GPU, chạy lại `docker compose up -d`; kiểm tra GPU trong Docker:
    `docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi`
-2. Thêm handler mới (ví dụ nén/gộp PDF qua Stirling-PDF, cần xử lý đăng nhập/API key).
+2. Thêm handler mới (gộp/tách PDF qua Stirling-PDF; gộp cần nhiều file một job).
+3. Cho người dùng chọn mức nén (hiện cố định 5); cần thêm "tuỳ chọn" cho job.
 Để sau: job bị kẹt ở Processing khi worker tắt giữa chừng, retry, xoá file cũ,
 giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB), thanh tiến độ khi tải file lên
 (trang hiện chỉ báo "Đang tải file lên..."), mở API ra internet (HTTPS, chống lạm dụng).

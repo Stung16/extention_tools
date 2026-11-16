@@ -27,7 +27,7 @@ pip install -r worker/requirements.txt
 
 Kiểm tra Docker:
 
-- Stirling-PDF: mở http://localhost:8080 (lần đầu phải đăng nhập bằng tài khoản mặc định ghi trên trang, rồi đổi mật khẩu)
+- Stirling-PDF: mở http://localhost:8080 (đã tắt đăng nhập, xem `docker-compose.yml`)
 - Gotenberg: mở http://localhost:3000/health
 
 ## Chạy API và Worker
@@ -92,8 +92,16 @@ Cho worker (phải gửi header `X-Worker-Key`):
 
 - `WorkerKey` của API: lúc phát triển là `dev-worker-key` (trong `api/appsettings.Development.json`).
   Chạy thật thì đặt biến môi trường `WorkerKey` thành một chuỗi bí mật dài.
-- Worker đọc biến môi trường `API_URL`, `WORKER_KEY`, `GOTENBERG_URL`
-  (mặc định: `http://localhost:5100`, `dev-worker-key`, `http://localhost:3000`).
+- Worker đọc biến môi trường `API_URL`, `WORKER_KEY`, `GOTENBERG_URL`, `STIRLING_URL`
+  (mặc định: `http://localhost:5100`, `dev-worker-key`, `http://localhost:3000`, `http://localhost:8080`).
+  `STIRLING_API_KEY` chỉ cần khi bật lại đăng nhập của Stirling-PDF.
+
+## Các công cụ đang có
+
+| Loại job | Tên trên trang | Nhận file | Dùng gì |
+|---|---|---|---|
+| `word-to-pdf` | Word sang PDF | .doc .docx .odt .rtf | Gotenberg |
+| `compress-pdf` | Nén PDF | .pdf | Stirling-PDF (mức nén 5/9) |
 - Database (SQLite) và file tải lên nằm ở `api/data/`, không đưa lên Git.
 
 ## Cập nhật khi có thay đổi

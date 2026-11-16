@@ -32,6 +32,7 @@ var workerKey = app.Configuration["WorkerKey"]
 var jobTypes = new Dictionary<string, JobTypeInfo>
 {
     ["word-to-pdf"] = new("Word sang PDF", [".doc", ".docx", ".odt", ".rtf"]),
+    ["compress-pdf"] = new("Nén PDF", [".pdf"]),
 };
 
 string FilePath(string name) => Path.Combine(filesDir, name);
