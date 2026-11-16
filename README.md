@@ -12,6 +12,7 @@ làm theo luồng của pdfguru.com. Phần xử lý chạy trên máy local b�
 | `worker/` | Cứ 3 giây hỏi API có job không, có thì xử lý. Hai loại: **main** (PDF, ảnh, video) và **ai** | Python |
 | Stirling-PDF, Gotenberg | Công cụ PDF và Office có sẵn, chạy trong Docker | |
 | Ollama | Chạy mô hình ngôn ngữ cho Tóm tắt, Dịch (chỉ trên máy GPU) | |
+| `monitor/` | Trình giám sát: app desktop xem job chờ/đang chạy/lỗi, máy xử lý và dịch vụ nào đang bật, thử lại/huỷ job | Rust (Tauri) + HTML/CSS/JS |
 
 Công cụ chia làm 2 kiểu:
 
@@ -150,6 +151,31 @@ YouTube hay chặn chương trình tải tự động. Cách xử lý: đăng nh
 
 Cookies là thông tin đăng nhập: không đưa lên Git, không gửi cho ai (`data/` đã nằm trong .gitignore).
 
+## Trình giám sát (app desktop)
+
+App desktop trong `monitor/` (Tauri: vỏ Rust, giao diện HTML/CSS/JS trong `monitor/ui/`), cứ 2 giây
+hỏi API:
+
+- **Cần chú ý**: tự báo khi worker tắt mà vẫn có job chờ, Stirling-PDF/Gotenberg không chạy, job quá
+  hạn giữ chỗ, job chờ quá 5 phút, có job lỗi.
+- **Băng chuyền** Hàng chờ → Đang xử lý (đồng hồ chạy, thanh giữ chỗ) → Kết quả 24 giờ.
+- Máy xử lý và dịch vụ, biểu đồ số job từ lúc mở app, con số chung.
+- Bảng có tab (Hàng chờ, Lịch sử 24 giờ, Theo công cụ), tìm kiếm (phím `/`), bộ lọc.
+- Bấm một job để xem chi tiết: **Thử lại** job lỗi, **Huỷ** job đang chờ (bấm hai lần), chép mã job.
+- Nút Cài đặt: đổi địa chỉ API và mã worker (lưu lại cho lần sau). Sáng/tối theo Windows.
+
+Cần Rust (https://rustup.rs) và WebView2 (Windows 11 có sẵn). Trong thư mục `monitor`:
+
+```
+cargo run --release
+```
+
+Lần đầu build mất vài phút. File chạy được: `monitor/target/release/monitor.exe` (khoảng 10 MB), chép
+đi đâu dùng cũng được. Sửa giao diện trong `monitor/ui/` thì chạy lại lệnh trên (giao diện được nhúng
+vào file .exe). Mặc định nối `http://localhost:5100` với mã `dev-worker-key`; các dịch vụ khác được
+kiểm tra trên cùng máy với API (cổng 8080, 3000, 11434). Dịch vụ "đang chạy" nếu trả lời bất kỳ mã HTTP
+nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồm cả thời gian chờ.
+
 ## Thêm một công cụ mới
 
 1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/handlers/`, trả về đường
@@ -181,8 +207,14 @@ Cho trang web: `GET /api/job-types` (danh sách công cụ, có `online` = máy 
 `POST /api/jobs` (form: `type`, `file` hoặc `url`, các tuỳ chọn), `GET /api/jobs/{id}`,
 `GET /api/jobs/{id}/output`.
 
-Cho worker (header `X-Worker-Key`): `GET /api/jobs/next?types=a,b` (204 = không có job),
-`GET /api/jobs/{id}/input`, `POST /api/jobs/{id}/complete` (form `file`), `POST /api/jobs/{id}/fail`.
+Cho worker (header `X-Worker-Key`): `GET /api/jobs/next?types=a,b` (204 = không có job; có thì trả
+kèm `attempt` = số lượt), `GET /api/jobs/{id}/input`, `POST /api/jobs/{id}/heartbeat?attempt=n`
+(gia hạn giữ job), `POST /api/jobs/{id}/complete` (form `file`, `attempt`), `POST /api/jobs/{id}/fail`
+(JSON `error`, `attempt`).
+
+Cho trình giám sát (header `X-Worker-Key`): `GET /api/admin/overview` (số job theo trạng thái, theo
+công cụ, worker, job đang chạy, hàng chờ, 100 job vừa kết thúc, dung lượng file),
+`POST /api/admin/jobs/{id}/retry` (job lỗi → hàng chờ), `POST /api/admin/jobs/{id}/cancel` (job đang chờ → lỗi).
 
 ## Lưu ý
 

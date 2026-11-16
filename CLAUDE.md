@@ -82,6 +82,18 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - Mô hình tải về models/ (HF_HOME, TORCH_HOME đặt trong main.py).
   - Hai venv khi chạy tay: .venv (requirements.txt), .venv-ai (torch riêng + requirements-ai.txt).
     av phải < 16 (av 19 bỏ tham số metadata_errors mà faster-whisper 1.2.1 dùng).
+- `monitor/` Tauri 2.12 (Rust edition 2024) + giao diện HTML/CSS/JS thuần trong monitor/ui (không npm).
+  Bản egui đầu tiên bị chê xấu, bất tiện -> đã bỏ. Không cần tauri-cli: Cargo feature mặc định
+  custom-protocol nhúng ui/ vào exe, `cargo run` là chạy; tauri.conf.json ở monitor/ (frontendDist "ui",
+  withGlobalTauri, cửa sổ maximized), icons/icon.ico tự vẽ bằng Pillow. Rust chỉ đưa thư (API không mở CORS):
+  lệnh overview, job_action (retry/cancel), check_services (ping song song, reqwest async + futures).
+  JS gọi window.__TAURI__.core.invoke; cài đặt (apiUrl, key) lưu localStorage; hỏi API 2 giây, dịch vụ 5 giây.
+  Thiết kế: "băng chuyền" Hàng chờ -> Đang xử lý -> Kết quả là điểm nhấn; màu chỉ báo trạng thái
+  (hổ phách chờ, mòng két chạy, xanh xong, đỏ lỗi); phông Segoe UI Variable, Be Vietnam Pro dự phòng.
+  API: GET /api/admin/overview, POST /api/admin/jobs/{id}/retry|cancel (X-Worker-Key). "Thời gian" =
+  UpdatedAt - CreatedAt (gồm chờ); job đang chạy = now - UpdatedAt; retry đặt lại CreatedAt, Attempts = 0.
+  Chụp màn hình app bằng computer-use: request_access dùng đường dẫn đầy đủ tới monitor.exe; đưa cửa sổ lên
+  trước bằng WScript.Shell AppActivate (open_application sẽ mở thêm một bản). Chưa xem kỹ giao diện sáng.
 - Docker: docker-compose.yml có stirling-pdf, gotenberg, api, worker; profile "ai": ollama, worker-ai
   (GPU reservation). api/Dockerfile (node build web -> dotnet publish -> aspnet), worker/Dockerfile
   (python slim + ffmpeg), worker/Dockerfile.ai (nvidia/cuda 12.8.1 cudnn + torch cu128). .env.example.

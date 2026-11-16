@@ -255,12 +255,10 @@ jobs.MapGet("/{id:guid}/output", async (Guid id, AppDb db) =>
 
 // ---------- Endpoint cho worker (phải gửi kèm header X-Worker-Key) ----------
 
-var worker = app.MapGroup("/api/jobs").AddEndpointFilter(async (ctx, next) =>
-{
-    if (ctx.HttpContext.Request.Headers["X-Worker-Key"] != workerKey)
-        return Results.Unauthorized();
-    return await next(ctx);
-});
+async ValueTask<object?> RequireWorkerKey(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) =>
+    ctx.HttpContext.Request.Headers["X-Worker-Key"] != workerKey ? Results.Unauthorized() : await next(ctx);
+
+var worker = app.MapGroup("/api/jobs").AddEndpointFilter(RequireWorkerKey);
 
 // Worker hỏi: "có job nào không?", kèm danh sách loại job nó làm được (?types=a,b,c).
 // 204 = không có. 200 = có, và job được đổi sang Processing ngay.
@@ -368,6 +366,145 @@ worker.MapPost("/{id:guid}/fail", async (Guid id, FailRequest body, AppDb db) =>
     await db.SaveChangesAsync();
     return Results.Ok();
 });
+
+// ---------- Endpoint cho trình giám sát (monitor/, app Rust) ----------
+// Dùng chung mã X-Worker-Key: chỉ người quản lý máy chủ mới có mã này.
+
+app.MapGet("/api/admin/overview", async (AppDb db) =>
+{
+    var now = DateTime.UtcNow;
+    var since = now.AddHours(-24);
+    string Label(string type) => jobTypes.TryGetValue(type, out var t) ? t.Label : type;
+    string WorkerOf(string type) => jobTypes.TryGetValue(type, out var t) ? t.Worker : "?";
+    double Seconds(DateTime from, DateTime to) => Math.Max(0, (to - from).TotalSeconds);
+
+    var totals = await db.Jobs.GroupBy(j => j.Status)
+        .Select(g => new { Status = g.Key, Count = g.Count() })
+        .ToDictionaryAsync(x => x.Status, x => x.Count);
+    int Total(JobStatus s) => totals.GetValueOrDefault(s);
+
+    // Job đang chờ / đang xử lý, và job kết thúc trong 24 giờ qua (số lượng nhỏ, tính tiếp trong bộ nhớ).
+    var active = await db.Jobs
+        .Where(j => j.Status == JobStatus.Pending || j.Status == JobStatus.Processing)
+        .OrderBy(j => j.CreatedAt)
+        .Select(j => new { j.Id, j.Type, j.Status, j.OriginalName, j.Attempts, j.CreatedAt, j.UpdatedAt, j.LeaseUntil })
+        .ToListAsync();
+    var finished = await db.Jobs
+        .Where(j => (j.Status == JobStatus.Done || j.Status == JobStatus.Failed) && j.UpdatedAt >= since)
+        .OrderByDescending(j => j.UpdatedAt)
+        .Select(j => new { j.Id, j.Type, j.Status, j.OriginalName, j.Attempts, j.Error, j.CreatedAt, j.UpdatedAt })
+        .ToListAsync();
+
+    var pending = active.Where(j => j.Status == JobStatus.Pending).ToList();
+    var processing = active.Where(j => j.Status == JobStatus.Processing).ToList();
+    var done24 = finished.Where(j => j.Status == JobStatus.Done).ToList();
+
+    // Thời gian "từ lúc gửi tới lúc xong" (gồm cả thời gian chờ trong hàng): đúng thứ người dùng cảm nhận.
+    double? Avg(IEnumerable<double> xs) { var l = xs.ToList(); return l.Count == 0 ? null : Math.Round(l.Average(), 1); }
+
+    // Mỗi nhóm worker ("main", "ai"): bật nếu có loại job nào của nhóm vừa được hỏi tới.
+    var workers = jobTypes.GroupBy(t => t.Value.Worker).Select(g =>
+    {
+        var seen = g.Select(t => lastSeen.TryGetValue(t.Key, out var v) ? v : (DateTime?)null).Max();
+        return new
+        {
+            Name = g.Key,
+            Online = g.Any(t => IsOnline(t.Key)),
+            LastSeenSecondsAgo = seen is null ? (double?)null : Math.Round(Seconds(seen.Value, now), 1),
+            Types = g.Count(),
+            Pending = pending.Count(j => WorkerOf(j.Type) == g.Key),
+            Processing = processing.Count(j => WorkerOf(j.Type) == g.Key),
+        };
+    });
+
+    var types = jobTypes.Select(t => new
+    {
+        Type = t.Key,
+        t.Value.Label,
+        t.Value.Worker,
+        Online = IsOnline(t.Key),
+        Pending = pending.Count(j => j.Type == t.Key),
+        Processing = processing.Count(j => j.Type == t.Key),
+        Done24h = done24.Count(j => j.Type == t.Key),
+        Failed24h = finished.Count(j => j.Type == t.Key && j.Status == JobStatus.Failed),
+        AvgSeconds24h = Avg(done24.Where(j => j.Type == t.Key).Select(j => Seconds(j.CreatedAt, j.UpdatedAt))),
+    });
+
+    var files = Directory.EnumerateFiles(filesDir).Select(f => new FileInfo(f).Length).ToList();
+
+    return Results.Ok(new
+    {
+        ServerTime = now,
+        Totals = new
+        {
+            Pending = Total(JobStatus.Pending), Processing = Total(JobStatus.Processing),
+            Done = Total(JobStatus.Done), Failed = Total(JobStatus.Failed),
+        },
+        Last24h = new
+        {
+            Done = done24.Count,
+            Failed = finished.Count - done24.Count,
+            AvgSeconds = Avg(done24.Select(j => Seconds(j.CreatedAt, j.UpdatedAt))),
+        },
+        OldestPendingSeconds = pending.Count == 0 ? (double?)null : Math.Round(Seconds(pending[0].CreatedAt, now), 1),
+        Workers = workers,
+        Types = types,
+        // Lúc worker nhận job, UpdatedAt được đặt lại (tín hiệu sống không đổi cột này), nên now - UpdatedAt
+        // là thời gian đã xử lý ở lượt hiện tại.
+        Running = processing.Select(j => new
+        {
+            j.Id, j.Type, Label = Label(j.Type), Worker = WorkerOf(j.Type), Name = j.OriginalName,
+            Attempt = j.Attempts, Seconds = Math.Round(Seconds(j.UpdatedAt, now), 1),
+            LeaseSecondsLeft = j.LeaseUntil is null ? (double?)null : Math.Round((j.LeaseUntil.Value - now).TotalSeconds, 1),
+        }),
+        Waiting = pending.Take(50).Select(j => new
+        {
+            j.Id, j.Type, Label = Label(j.Type), Worker = WorkerOf(j.Type), Name = j.OriginalName,
+            j.Attempts, WaitSeconds = Math.Round(Seconds(j.CreatedAt, now), 1),
+        }),
+        Recent = finished.Take(100).Select(j => new
+        {
+            j.Id, j.Type, Label = Label(j.Type), Worker = WorkerOf(j.Type), Name = j.OriginalName, Status = j.Status.ToString(),
+            j.Attempts, j.Error, Seconds = Math.Round(Seconds(j.CreatedAt, j.UpdatedAt), 1),
+            AgoSeconds = Math.Round(Seconds(j.UpdatedAt, now), 1),
+        }),
+        Storage = new { Files = files.Count, Bytes = files.Sum() },
+    });
+}).AddEndpointFilter(RequireWorkerKey);
+
+// Thử lại job lỗi: đưa về hàng chờ, đếm lượt lại từ đầu. File đầu vào vẫn còn trên ổ nên làm lại được.
+// (Mật khẩu của công cụ đặt/gỡ mật khẩu đã bị xoá khi job lỗi, nên job loại đó thử lại sẽ thiếu mật khẩu.)
+app.MapPost("/api/admin/jobs/{id:guid}/retry", async (Guid id, AppDb db) =>
+{
+    var job = await db.Jobs.FindAsync(id);
+    if (job is null) return Results.NotFound();
+    if (job.Status != JobStatus.Failed)
+        return Results.Conflict(new { error = "Chỉ thử lại được job đang lỗi." });
+    if (job.InputFile != "" && !File.Exists(FilePath(job.InputFile)))
+        return Results.Conflict(new { error = "File gốc của job này không còn trên máy chủ." });
+
+    job.Status = JobStatus.Pending;
+    job.Error = null;
+    job.Attempts = 0;
+    job.LeaseUntil = null;
+    job.CreatedAt = DateTime.UtcNow; // xếp lại vào cuối hàng, tính thời gian chờ từ bây giờ
+    job.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok();
+}).AddEndpointFilter(RequireWorkerKey);
+
+// Huỷ job đang chờ. Job đang chạy thì không huỷ được (worker không có cách dừng giữa chừng).
+app.MapPost("/api/admin/jobs/{id:guid}/cancel", async (Guid id, AppDb db) =>
+{
+    var now = DateTime.UtcNow;
+    var changed = await db.Jobs
+        .Where(j => j.Id == id && j.Status == JobStatus.Pending)
+        .ExecuteUpdateAsync(s => s
+            .SetProperty(j => j.Status, JobStatus.Failed)
+            .SetProperty(j => j.Error, "Đã bị huỷ bởi người quản lý máy chủ.")
+            .SetProperty(j => j.UpdatedAt, now));
+    return changed == 1 ? Results.Ok() : Results.Conflict(new { error = "Chỉ huỷ được job đang chờ." });
+}).AddEndpointFilter(RequireWorkerKey);
 
 // Các địa chỉ trang như /nen-pdf hay /word-sang-pdf không phải file thật:
 // trả về index.html, rồi trang web React tự hiện đúng công cụ.
