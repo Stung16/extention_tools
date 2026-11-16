@@ -15,3 +15,9 @@ obj/
 # Python
 __pycache__/
 .venv/
+.venv-ai/
+.venv-pdf2zh/
+
+# Trang web React: thư viện tải về và bản đóng gói (sinh ra bằng "npm install", "npm run build")
+node_modules/
+api/wwwroot/

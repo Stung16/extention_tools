@@ -1,0 +1,6 @@
+.venv
+.venv-ai
+.venv-pdf2zh
+__pycache__
+**/__pycache__
+*.log

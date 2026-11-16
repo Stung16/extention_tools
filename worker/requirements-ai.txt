@@ -1,0 +1,27 @@
+# Thư viện cho worker AI (WORKER_PROFILE=ai).
+#
+# PyTorch KHÔNG ghi ở đây vì mỗi máy cần một bản khác nhau, cài riêng TRƯỚC file này:
+#   Máy có GPU NVIDIA (RTX 50 cần CUDA 12.8+):
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   Máy không có GPU (chạy CPU, chậm hơn):
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# Sau đó:  pip install -r requirements-ai.txt
+#
+# Các phiên bản dưới đây đã chạy thử cùng nhau (16/11/2026).
+requests==2.34.2
+pillow==13.0.0
+pillow-heif==1.8.1
+faster-whisper==1.2.1    # chép lời (Whisper chạy bằng CTranslate2)
+ctranslate2==4.9.0
+av==15.1.0               # đọc âm thanh/video cho faster-whisper; av 16+ không chạy được với faster-whisper 1.2.1
+demucs==4.1.0            # tách giọng hát
+spandrel==0.4.2          # nạp mô hình Real-ESRGAN (làm nét ảnh)
+yt-dlp==2026.10.26       # tải video YouTube (nên cập nhật thường xuyên vì YouTube hay đổi)
+pypdf==7.1.0             # lấy chữ từ PDF để tóm tắt, dịch
+soundfile==0.14.0
+vieneu==3.8.4            # văn bản sang giọng nói tiếng Việt (VieNeu-TTS, chạy CPU bằng ONNX)
+
+# Dịch PDF giữ bố cục dùng PDFMathTranslate-next, cài trong MÔI TRƯỜNG RIÊNG (dễ xung đột thư viện):
+#   python -m venv .venv-pdf2zh
+#   .venv-pdf2zh\Scripts\pip install pdf2zh-next==2.10.2
+# Worker tự tìm .venv-pdf2zh; hoặc đặt biến PDF2ZH_BIN trỏ tới chương trình pdf2zh_next.

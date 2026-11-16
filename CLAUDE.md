@@ -1,7 +1,6 @@
 # CLAUDE.md: bối cảnh dự án extention_tools
 
-File này tóm tắt những gì đã thống nhất trong buổi trao đổi trên Claude chat (15/11/2026),
-để Claude Code nắm được bối cảnh khi mở phiên mới.
+Tóm tắt những gì đã thống nhất và đã làm, để Claude Code nắm bối cảnh khi mở phiên mới.
 
 ## Cách làm việc với người dùng
 
@@ -10,164 +9,121 @@ File này tóm tắt những gì đã thống nhất trong buổi trao đổi tr
 - Luôn đưa phiên bản đơn giản nhất trước; để các vấn đề nâng cao lại cho tới khi thật sự cần.
 - Nói thẳng khi không chắc chắn hoặc có giới hạn, không tô vẽ.
 - Người dùng đang học .NET (đang dùng .NET 10).
+- Người dùng muốn: làm được gì trên máy cá nhân thì làm và test trước, phần cần GPU để họ test trên
+  máy RTX; công cụ cần thao tác thì chạy trên trình duyệt (React); tự chọn repo/thư viện phù hợp.
 
 ## Mục tiêu dự án
 
-Xây một dịch vụ kiểu pdfguru.com cho thị trường Việt Nam: một website gồm nhiều công cụ
-xử lý file (PDF, video, âm thanh, phiên âm, hình ảnh). Phần xử lý chạy hoàn toàn trên
-máy local của người dùng, dùng các công cụ mã nguồn mở.
+Website kiểu pdfguru.com cho thị trường Việt Nam: nhiều công cụ xử lý file (PDF, ảnh, video, âm thanh,
+AI). Xử lý chạy trên máy local bằng phần mềm mã nguồn mở. Làm theo LUỒNG của pdfguru (mỗi công cụ một
+trang, ô kéo thả, bước hướng dẫn, FAQ, lưới công cụ theo nhóm), KHÔNG chép thương hiệu/câu chữ của họ.
+Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so sánh: docs/bao-cao-so-sanh-pdfguru.md.
 
-Nghiên cứu thị trường: chưa có bên Việt Nam nào làm trọn bộ như vậy. Thị trường đang
-do công cụ nước ngoài chiếm (iLovePDF, Smallpdf, PDF24...). Bên Việt chỉ mạnh từng mảng
-(FPT.AI, Viettel AI, Vbee cho giọng nói; VNPT/Viettel/FPT cho OCR doanh nghiệp).
+## Kiến trúc
 
-## Kiến trúc đã chọn: worker tự đi hỏi job (polling)
-
-1. Website + API (trên internet): người dùng tải file lên, API lưu file và tạo dòng trong
-   bảng Jobs (Id, Type, Status, InputFile, OutputFile).
-   Trạng thái: Pending -> Processing -> Done / Failed.
-2. Worker (chạy ở máy local) cứ khoảng 3 giây gọi `GET /api/jobs/next`
-   (kèm header X-Worker-Key):
-   - 204 = không có job, đợi rồi hỏi lại.
-   - 200 = trả về job; API đồng thời đổi job sang Processing để không bị nhận hai lần.
-3. Worker tải file, chọn công cụ theo loại job (mỗi loại một handler), chạy xong thì
-   `POST /api/jobs/{id}/complete` kèm file kết quả.
-
-Lý do chọn polling: máy nhà không có IP cố định, không phải mở cổng router; máy tắt thì
-job vẫn nằm chờ. Đẩy job tức thời (SignalR) để sau.
-
-Bản đầu: worker chạy 1 job một lúc; dùng bảng Jobs trong database làm hàng đợi
-(chưa cần RabbitMQ/Redis). Để sau: chia làn nhẹ/nặng, retry, xử lý job bị kẹt, báo tiến độ realtime.
-
-Mọi công cụ quy về 2 kiểu: gọi HTTP (dịch vụ chạy trong Docker) hoặc chạy lệnh (FFmpeg...).
-
-## Ngôn ngữ backend (đã chốt 16/11/2026)
-
-API viết bằng .NET (ASP.NET Core minimal API, .NET 10), Worker viết bằng Python.
-Lý do: người dùng đang học .NET; worker Python gọi thẳng được các mô hình AI.
-
-- api/: minimal API, EF Core + SQLite (file api/data/jobs.db, tạo bằng EnsureCreated,
-  chưa dùng migration). File lưu ở api/data/files, đặt tên theo Id job.
-  Id job là Guid để người khác không đoán được. Upload đọc bằng request.ReadFormAsync.
-  Cổng 5100. WorkerKey lấy từ cấu hình (bản dev: "dev-worker-key").
-- worker/: main.py (vòng lặp polling), handlers/ (mỗi loại job một file, đăng ký trong
-  handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
-- Loại job hiện có (12): "word-to-pdf" (+ .txt), "excel-to-pdf" (+ .csv), "powerpoint-to-pdf"
-  (cả ba dùng chung office_to_pdf.py, gọi Gotenberg /forms/libreoffice/convert; LibreOffice tự
-  nhận loại file theo đuôi); "html-to-pdf" (html_to_pdf.py, Gotenberg /forms/chromium/convert/html,
-  file phải tên index.html; ảnh/CSS file riêng không đi kèm);
-  qua Stirling (stirling_to_pdf.py, mỗi hàm một handler, đều gọi stirling.post):
-  "image-to-pdf" (/convert/img/pdf, fitOption=maintainAspectRatio, autoRotate=true),
-  "markdown-to-pdf", "ebook-to-pdf" (Calibre có sẵn trong image Stirling), "email-to-pdf"
-  (/convert/eml/pdf), "comic-to-pdf" (/convert/cbz/pdf), "svg-to-pdf", "postscript-to-pdf"
-  (/convert/vector/pdf, Ghostscript);
-- handlers/stirling.py: hàm post(endpoint, input_path, work_dir, data) dùng chung, gửi trường
-  fileInput, xử lý 401, báo lỗi nếu kết quả không bắt đầu bằng %PDF;
-  "compress-pdf" (gọi Stirling POST /api/v1/misc/compress-pdf, trường fileInput,
-  optimizeLevel theo tuỳ chọn "level"; nếu kết quả không nhỏ hơn thì trả lại file gốc).
-- Tuỳ chọn job: mỗi loại job khai báo danh sách JobOption (Name, Label, Default, Choices)
-  trong jobTypes. API đọc giá trị từ form, không gửi thì dùng Default, sai thì 400; lưu vào
-  cột Jobs.Options (chuỗi JSON). /next trả "options" cho worker; handler nhận
-  (input_path, work_dir, options). Trang web tự vẽ nút tròn cho từng tuỳ chọn.
-- Mức nén cho người dùng chọn: 4 Nhẹ, 5 Vừa (mặc định), 8 Mạnh. Đo trên PDF 5,8MB có ảnh
-  1600x1200: mức 1-3 gần như không giảm (~5,7MB); 4: 528KB (ảnh 1248px); 5: 340KB (1088px);
-  6-7: 672KB (to hơn mức 5); 8: 167KB (756px); 9: 67KB (533px, quá mờ).
-- EnsureCreated không thêm cột vào database cũ: đổi entity Job thì phải xoá api/data/jobs.db
-  (chỉ khi phát triển). Trước khi có dữ liệu thật nên chuyển sang EF Core migrations.
-  Danh sách loại job (tên hiển thị + đuôi file) khai báo trong biến jobTypes ở api/Program.cs;
-  thêm handler mới ở worker thì thêm một dòng ở đó, trang web tự hiện công cụ mới.
-- Trang web: api/wwwroot/index.html, HTML + JS thuần (chưa dùng framework), API phục vụ
-  luôn qua UseDefaultFiles/UseStaticFiles. Trang gọi GET /api/job-types để hiện công cụ,
-  kiểm tra đuôi file trên trình duyệt, POST /api/jobs, rồi hỏi trạng thái mỗi 2 giây.
-  Chờ Pending quá 15 giây thì báo "máy xử lý đang bận hoặc đang tắt".
+- `web/` React 18 + Vite 5 + react-router 6 (JavaScript, không TypeScript). `npm run build` ->
+  `api/wwwroot` (scripts/clean.mjs xoá FILE cũ trước, vì API đang chạy giữ khoá thư mục -> EBUSY nếu
+  để Vite xoá thư mục). `npm run dev` ở :5173, proxy /api -> :5100. api/wwwroot KHÔNG đưa lên Git.
+  - src/catalog.js: CATEGORIES -> tools {slug, name, desc, icon, job? | client?, faq?}. Có `job` mà API
+    hỗ trợ -> dùng được; có `client` -> chạy trên trình duyệt; không có cả hai -> "Sắp có".
+  - src/tools/ServerTool.jsx: luồng chung chọn file/dán link -> tuỳ chọn -> useJob (XHR có % tải lên,
+    hỏi trạng thái mỗi 2 giây) -> JobStatus. Báo khi máy xử lý đang tắt (job-types.online, job.workerOnline).
+  - Công cụ trình duyệt (src/tools/index.jsx, nạp lazy): MergePdf, SplitPdf (JSZip), OrganizePdf
+    (thumbnail pdf.js, kéo thả), CropPdf (setCropBox theo tỉ lệ), PdfEditor (EditPdf/AnnotatePdf/SignPdf:
+    chữ, bút, tô sáng, che trắng, ảnh, chữ ký; lưu bằng pdf-lib, đổi toạ độ bằng viewport.convertToPdfPoint),
+    SignaturePad, FillPdf, QrCode (qrcode), MergeImages (canvas), TrimVideo (xem/chọn đoạn trên trình
+    duyệt, cắt bằng job trim-video).
+  - Chữ tiếng Việt trong PDF: nhúng phông Be Vietnam Pro (OFL) web/public/fonts, qua @pdf-lib/fontkit.
+    FillPdf: updateFieldAppearances(font) rồi save({updateFieldAppearances:false}); tự đặt cỡ chữ theo
+    chiều cao ô (cỡ tự động làm mất dấu nặng/chân chữ).
+  - pdf.js 4.10.38 vẽ trang bằng requestAnimationFrame: tab/khung trình duyệt bị ẩn thì KHÔNG vẽ
+    (gặp khi test trong Browser pane bị ẩn; người dùng thật không bị).
+- `api/` ASP.NET Core minimal API (.NET 10), EF Core + SQLite (EnsureCreated, chưa migration; đổi
+  entity Job phải xoá jobs.db khi dev). DataDir (mặc định api/data; Docker /data). Cổng 5100 (Docker
+  map 5100->8080). WorkerKey từ cấu hình (dev: "dev-worker-key").
+  - JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai", Input "file"/"url",
+    UrlPattern). JobOption: Kind choice/text/password, Pattern, MaxLength, Required, Hint.
+  - /next?types=a,b: worker chỉ nhận loại nó làm; API ghi lastSeen theo loại (online nếu < 30 giây).
+  - Kind "password": xoá khỏi Jobs.Options khi complete/fail, ẩn ở GET /api/jobs/{id}.
+  - Job dạng url: InputFile="", link ở Options["url"], tên tải về lấy từ form "name" worker gửi.
+  - Tên tải về: tên gốc + đuôi kết quả; cùng đuôi với file gốc thì thêm "-ket-qua".
+  - Giới hạn upload 100 MB. MapFallback trả index.html (thiếu thì báo chạy npm run build); /api/* vẫn 404.
+- `worker/` Python. WORKER_PROFILE main | ai | all. handlers/__init__.py: MAIN (35 loại) và AI (8 loại,
+  nạp lười nên worker main không cần PyTorch). Mỗi handler (input_path, work_dir, options) -> Path.
+  - stirling.py post(): gửi fileInput KÈM content-type (thiếu thì pdf->word/presentation/html báo 400),
+    đuôi kết quả theo Content-Disposition, lỗi pdf-password đổi tiếng Việt.
+  - images.py (Pillow 13 có AVIF sẵn + pillow-heif cho HEIC), media.py (FFmpeg: nén/đổi video, đổi âm
+    thanh, video->mp3, cắt video mã hoá lại cho chính xác).
+  - ai_audio.py: faster-whisper (large-v3-turbo GPU / small CPU), yt-dlp (YTDLP_COOKIES), DeepFilterNet
+    bản chương trình độc lập deep-filter 0.5.6 (tự tải vào models/bin, không cần PyTorch), Demucs 4.1.0
+    (gọi `python -m demucs --two-stems vocals --mp3`, không cần torchaudio).
+  - ai_image.py: Real-ESRGAN x2plus/x4plus qua spandrel, chia ô 256/512, giới hạn cạnh 3000/1500px.
+  - ai_text.py: Ollama (/api/chat, tự /api/pull nếu thiếu mô hình), pypdf/đọc docx; tóm tắt map-reduce,
+    dịch theo đoạn 2500 ký tự. translate_pdf: gọi pdf2zh_next (PDFMathTranslate-next 2.10.2, AGPL, venv riêng
+    .venv-pdf2zh hoặc PDF2ZH_BIN) với --ollama --ollama-model --ollama-host --lang-out --output
+    --watermark-output-mode no_watermark --no-dual/--no-mono; kết quả *mono*.pdf / *dual*.pdf.
+  - ai_speech.py: VieNeu-TTS (pip vieneu 3.8.4, Apache-2.0, v3 Turbo 48 kHz, CPU bằng ONNX, không cần torch):
+    Vieneu().infer(text, voice=tên) -> save wav -> FFmpeg ra mp3. 25 giọng (list_preset_voices); catalog chọn 8.
+  - ai_music.py: ACE-Step 1.5 qua REST (ACESTEP_URL, mặc định :8001): POST /release_task {prompt, lyrics,
+    audio_duration, audio_format mp3, batch_size 1} -> POST /query_result {task_id_list} (status 1 xong, 2 lỗi,
+    result là chuỗi JSON có "file") -> GET file. ACE-Step cài riêng (uv sync; uv run acestep-api). CHƯA thử thật.
+  - converters.py: image-to-text (Stirling img->pdf -> ocr-pdf force-ocr vie+eng -> pdf/text), xps-to-pdf
+    (xpstopdf, gói libgxps-utils), djvu-to-pdf (ddjvu -format=pdf, gói djvulibre-bin), dxf-to-pdf (ezdxf
+    recover + matplotlib qsave). xpstopdf/ddjvu chỉ có trong image Docker worker (Debian 13); trên Windows báo
+    "chưa cài". DWG chưa làm (Debian không có gói libredwg).
+  - API Input "none" (không file, chỉ nhập chữ: text-to-speech, generate-music) và JobOption Kind "textarea".
+    GET /api/jobs/{id} trả outputExt; /output trả đúng content-type (FileExtensionContentTypeProvider) để
+    trang web nghe thử âm thanh (<audio>) trong JobStatus.
+  - Mô hình tải về models/ (HF_HOME, TORCH_HOME đặt trong main.py).
+  - Hai venv khi chạy tay: .venv (requirements.txt), .venv-ai (torch riêng + requirements-ai.txt).
+    av phải < 16 (av 19 bỏ tham số metadata_errors mà faster-whisper 1.2.1 dùng).
+- Docker: docker-compose.yml có stirling-pdf, gotenberg, api, worker; profile "ai": ollama, worker-ai
+  (GPU reservation). api/Dockerfile (node build web -> dotnet publish -> aspnet), worker/Dockerfile
+  (python slim + ffmpeg), worker/Dockerfile.ai (nvidia/cuda 12.8.1 cudnn + torch cu128). .env.example.
 
 ## Hai máy
 
-- Máy cá nhân (đang dùng): để phát triển và chạy thử. GPU: NVIDIA GTX 1650 4GB
-  (driver 512.78), đủ thử Whisper bản nhỏ, không chạy được mô hình AI nặng.
-- Máy chạy thật: Intel Core Ultra 5 245K, RAM 64GB, NVIDIA RTX 5060 Ti 16GB, ổ cứng ~11TB, Windows.
+- Máy cá nhân (đang dùng): GTX 1650 4GB. Ổ C chỉ còn khoảng 13 GB (Docker lưu ở ổ C): KHÔNG build
+  image AI ở đây. Ollama image 8,5 GB đã tải (container "ollama" chạy tay, volume "ollama" có qwen2.5:1.5b).
+- Máy chạy thật: Core Ultra 5 245K, RAM 64GB, RTX 5060 Ti 16GB, ổ ~11TB, Windows.
+- Chuyển máy qua Git (github.com/Stung16/extention_tools, private). data/, models/, .env, node_modules,
+  api/wwwroot, .venv* không lên Git. Máy GPU phải làm lại: OCR tiếng Việt (README), .env.
 
-Cách chuyển giữa 2 máy: code và file cấu hình đi qua Git (repo private
-github.com/Stung16/extention_tools); phần mềm do Docker tự tải trên mỗi máy;
-dữ liệu và model không đưa lên Git (xem .gitignore).
-Cả 2 máy cần: Git, Docker Desktop (WSL2). Máy GPU: driver NVIDIA cài trên Windows,
-không cài driver bên trong WSL.
+## Đã chạy thử (16/11/2026, máy cá nhân)
 
-## Công cụ đã chọn cho từng việc
-
-- PDF (sửa, gộp, tách, nén, OCR, ký, chuyển đổi): Stirling-PDF (Docker, cổng 8080)
-- Word/Excel/PPTX/HTML sang PDF: Gotenberg (Docker, cổng 3000)
-- OCR tiếng Việt chính xác hơn: OCRmyPDF + Tesseract (gói vie), VietOCR/PaddleOCR
-- EPUB: Calibre (ebook-convert)
-- Dịch PDF giữ bố cục: PDFMathTranslate-next (BabelDOC) + Ollama
-- Video/âm thanh: FFmpeg
-- Âm thanh/video thành văn bản: faster-whisper + PhoWhisper (VinAI); YouTube: yt-dlp
-- Văn bản thành giọng nói tiếng Việt: VieNeu-TTS
-- Tách giọng hát: Demucs (dùng fork adefossez/demucs; repo gốc của Meta đã lưu trữ)
-- Nhạc AI: ACE-Step 1.5 (16GB: dùng chế độ low-memory)
-- Video AI: Wan 2.2 qua ComfyUI (16GB: bản 14B GGUF Q8/FP8, chậm, khoảng 10 phút trở lên mỗi clip)
-- Làm nét ảnh: Real-ESRGAN; nén/gộp ảnh: libvips hoặc ImageMagick
+- 35 loại job main: PDF (Stirling/Gotenberg), ảnh (nén JPG/HEIC/PNG, đổi AVIF->jpg/png/webp/pdf),
+  video (nén 12MB->661KB, đổi định dạng, cắt 2,5-6s ra đúng 3,5s), âm thanh. Qua API + worker thật.
+- AI trên CPU: chép lời tiếng Anh đúng từng chữ (txt, srt), lọc tạp âm giảm ồn ~29 dB, tách giọng
+  (bản nhạc nền không còn lời), làm nét x2/x4, tóm tắt/dịch với qwen2.5:1.5b (dịch còn sai: Friday ->
+  "thứ 5"; máy GPU dùng 7b). YouTube: bị chặn "not a bot" -> cần cookies; thông báo lỗi đã tiếng Việt.
+  CHƯA thử: chép lời tiếng Việt thật, mọi thứ trên GPU, image Docker AI.
+- Trình duyệt: gộp (4 trang), tách (zip 2 file), sắp xếp (đảo + xoay), cắt lề (đúng tỉ lệ), sửa PDF
+  (chữ Việt, che trắng, bút, tô sáng đúng vị trí khi xem bằng ảnh), ký (ảnh chữ ký), điền biểu mẫu
+  (chữ Việt đủ dấu sau khi chỉnh cỡ chữ), QR, gộp ảnh, cắt video. Giao diện điện thoại/máy tính không tràn.
+- OCR tiếng Việt: data/stirling/tessdata có vie.traineddata (tessdata_best), TESS_BASE_PATH/TESSDATA_PREFIX.
 
 ## Lưu ý quan trọng
 
-- RTX 50 (Blackwell, sm_120) cần PyTorch >= 2.7 bản CUDA 12.8 trở lên. Image Docker cũ
-  sẽ báo lỗi "sm_120 is not compatible" hoặc lặng lẽ chạy bằng CPU.
-- 16GB VRAM: việc nhẹ (Whisper, TTS, Real-ESRGAN) chạy song song được; việc nặng
-  (video AI, nhạc AI, Ollama) chạy từng việc một.
-- Giấy phép: VieNeu-TTS bản 0.3B là CC BY-NC (không dùng thương mại), bản 0.5B là Apache 2.0;
-  PDFMathTranslate là AGPL-3.0; Stirling-PDF có một số tính năng độc quyền;
-  ACE-Step (MIT) và Wan 2.2 (Apache 2.0) dùng thương mại được.
-- Mạng gia đình: tốc độ upload thấp, file video lớn có thể tải lên/xuống lâu.
-- Stirling-PDF (bản 3.3.0) mặc định bật đăng nhập; API khi đó đòi header X-API-KEY (key riêng
-  của từng tài khoản). Bản này không còn cấu hình key chung (customGlobalAPIKey) như bản cũ.
-  Đã chọn tắt đăng nhập bằng biến môi trường SECURITY_ENABLELOGIN=false trong
-  docker-compose.yml (an toàn vì chỉ mở trên 127.0.0.1). Nếu mở Stirling ra mạng thì phải
-  bật lại và đặt STIRLING_API_KEY cho worker (handler đã hỗ trợ sẵn).
-- Tài liệu API của Stirling: http://localhost:8080/v1/api-docs (JSON; /v3/api-docs trả về HTML).
-- Image Stirling-PDF lấy từ docker.stirlingpdf.com, tải lần đầu khá chậm (hơn 10 phút).
-- Các công cụ AI sau này thêm vào docker-compose.yml với `profiles: [gpu]` để máy không có GPU vẫn chạy phần còn lại.
+- RTX 50 (sm_120) cần PyTorch bản CUDA 12.8 trở lên.
+- Giấy phép: VieNeu-TTS 0.3B cấm thương mại (0.5B Apache); PDFMathTranslate, PyMuPDF, pdf2docx AGPL;
+  Stirling-PDF có phần độc quyền; Real-ESRGAN BSD-3; DeepFilterNet MIT/Apache; Be Vietnam Pro OFL.
+- Stirling-PDF 3.3.0: tắt đăng nhập (SECURITY_ENABLELOGIN=false), chỉ mở 127.0.0.1. Tài liệu API:
+  http://localhost:8080/v1/api-docs. Convert pdf->img mặc định bỏ qua ô biểu mẫu (includeAnnotations).
+- Test bằng curl trong Git Bash làm vỡ dấu tiếng Việt ở giá trị -F; dùng Python requests hoặc trình duyệt.
+- PowerShell không phân biệt hoa thường tên biến ($S và $s là một).
+- Không làm công cụ lấy URL tuỳ ý (SSRF vào mạng nhà); YouTube chỉ nhận link youtube.com/youtu.be.
 
-## Trạng thái hiện tại
+## Còn lại / để sau
 
-- Repo có: docker-compose.yml (Stirling-PDF + Gotenberg, chỉ mở trên 127.0.0.1),
-  .gitignore, README.md, CLAUDE.md.
-- Đã push lên GitHub.
-- Máy cá nhân (16/11/2026): `docker compose up -d` chạy được. Stirling-PDF trả 200 ở
-  :8080 (chuyển sang /login). Gotenberg /health báo chromium + libreoffice "up", đã đổi
-  thử HTML tiếng Việt sang PDF thành công.
-- Khung API + Worker đã chạy thử trọn luồng (16/11/2026): file .docx tiếng Việt thành PDF
-  đúng chữ; sai key bị 401; hàng đợi trống trả 204; sai đuôi file bị 400; Gotenberg không
-  gọi được thì job thành Failed kèm lý do.
-- Trang web upload đã chạy thử trên trình duyệt (16/11/2026): chặn sai đuôi file, Word
-  thành PDF, tên file tiếng Việt giữ đúng khi tải về, giao diện điện thoại không tràn ngang;
-  tắt worker thì job nằm chờ, bật lại thì tự xử lý và trang tự chuyển sang "Xong!".
-- Handler nén PDF đã chạy thử (16/11/2026): PDF 5,8MB còn 340KB qua API + worker, chữ tiếng
-  Việt giữ nguyên; nhánh "kết quả to hơn thì trả file gốc" và nhánh 401 thử bằng giả lập.
-- Tuỳ chọn mức nén đã chạy thử (16/11/2026): cả 3 mức qua API ra đúng dung lượng; không gửi
-  thì dùng 5; gửi 9 bị 400; trên trang web chọn "Mạnh" thì job nhận level 8, file 167KB;
-  chuyển sang "Word sang PDF" thì ô tuỳ chọn biến mất.
-- Excel/PowerPoint sang PDF đã chạy thử (16/11/2026) với file .xlsx/.pptx tiếng Việt tạo bằng
-  openpyxl/python-pptx: chữ đúng, công thức =SUM được tính, mỗi slide một trang, gửi .pptx
-  vào excel-to-pdf bị 400.
-- 12 công cụ đổi sang PDF đã chạy thử trọn luồng (16/11/2026) bằng file mẫu tự tạo: .txt, .csv,
-  .jpg, .png, .webp, .html, .md, .epub, .fb2, .eml, .cbz, .svg, .eps, .pptx; chữ tiếng Việt đúng
-  (SVG và ảnh xem bằng mắt qua Stirling /convert/pdf/img). Chưa thử bằng file thật: .mobi,
-  .azw3, .msg, .gif, .tif, .ps, .doc/.xls/.ppt đời cũ.
-- Không thêm CBR (truyện tranh nén RAR): image Stirling không có unrar/7z, chưa thử được.
-  Chưa thêm "URL sang PDF" vì cần ô nhập địa chỉ thay cho ô tải file.
-- Lưu ý Excel sang PDF in đúng như bảng tính hiện ra: cột hẹp mà ô bên cạnh có dữ liệu thì
-  chữ tràn bị cắt (ví dụ "Cà phê sữa đá" thành "Cà phê sữa"). Excel cũng in như vậy.
-  Bảng rộng có thể bị chia ra nhiều trang. Nếu cần, Gotenberg có tuỳ chọn như
-  singlePageSheets/landscape (chưa dùng).
-- Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
-  chứ không báo lỗi.
-
-## Bước tiếp theo
-
-1. Clone sang máy GPU, chạy lại `docker compose up -d`; kiểm tra GPU trong Docker:
-   `docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi`
-2. Thêm handler mới (gộp/tách PDF qua Stirling-PDF; gộp cần nhiều file một job).
-3. Chuyển database sang EF Core migrations trước khi có dữ liệu thật.
-Để sau: job bị kẹt ở Processing khi worker tắt giữa chừng, retry, xoá file cũ,
-giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB), thanh tiến độ khi tải file lên
-(trang hiện chỉ báo "Đang tải file lên..."), mở API ra internet (HTTPS, chống lạm dụng).
+- Đã gỡ khỏi trang web (16/11/2026): HEIC sang PDF, DWG sang PDF, PDF sang HTML, Chép lời YouTube, Tạo nhạc AI,
+  và cả nhóm "AI" (Tóm tắt, Dịch tài liệu, Dịch PDF giữ bố cục). Code API/worker của các job này vẫn còn.
+- Đã thử (16/11/2026 tối): ảnh sang chữ (hoá đơn tiếng Việt đúng từng chữ), DXF sang PDF (xem ảnh đúng),
+  văn bản sang giọng nói (chép lời nghe lại ra đúng câu gốc; ~3,5 s cho 8 s tiếng trên CPU), dịch PDF giữ
+  bố cục (bố cục, bảng, màu giữ đúng; nhưng qwen2.5:1.5b dịch dở, sót "```vi", "1234567890" -> cần 7b+),
+  tạo nhạc chỉ thử được thông báo lỗi khi chưa có máy chủ ACE-Step.
+- Docker vẫn lưu ở ổ C (C:\Users\admin\AppData\Local\Docker\wsl\disk\docker_data.vhdx ~38 GB, ổ C còn ~6 GB):
+  muốn build image AI trên máy này phải chuyển "Disk image location" của Docker Desktop sang ổ D trước.
+- Máy GPU: build và thử profile ai; thử chép lời tiếng Việt (cân nhắc PhoWhisper đổi sang CTranslate2).
+- Job bị kẹt Processing khi worker tắt giữa chừng, retry, xoá file cũ (FAQ không hứa tự xoá), EF Core
+  migrations, xem trước dung lượng từng mức nén, mở ra internet (HTTPS, chống lạm dụng, đăng nhập, gói
+  trả phí), tên thương hiệu thật.

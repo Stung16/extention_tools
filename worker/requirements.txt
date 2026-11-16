@@ -1,1 +1,9 @@
+# Thư viện cho worker thường (WORKER_PROFILE=main).
+# Cài: python -m venv .venv  rồi  .venv\Scripts\pip install -r requirements.txt
+# Cần thêm chương trình FFmpeg trên máy (Docker đã có sẵn).
+# XPS/DjVu sang PDF cần thêm chương trình xpstopdf, ddjvu (chỉ có sẵn trong bản Docker).
 requests==2.34.2
+pillow==13.0.0
+pillow-heif==1.8.1
+ezdxf==1.4.5         # đọc bản vẽ DXF
+matplotlib==3.11.2   # vẽ bản vẽ DXF ra PDF

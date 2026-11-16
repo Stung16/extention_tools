@@ -1,31 +1,127 @@
-# Các công cụ chạy local.
-# Khởi động:  docker compose up -d
-# Dừng lại:   docker compose down
+# Toàn bộ dịch vụ, chạy bằng một lệnh.
+#
+#   docker compose up -d --build     bật tất cả (lần đầu build lâu vài phút)
+#   docker compose down              tắt tất cả
+#   docker compose logs -f worker    xem log của worker
+#
+# Máy có GPU NVIDIA: bật thêm phần AI (Ollama + worker AI) bằng profile "ai":
+#   docker compose --profile ai up -d --build
+# hoặc ghi COMPOSE_PROFILES=ai vào file .env (xem .env.example) rồi chỉ cần "docker compose up -d".
+#
+# Trang web: http://localhost:5100
+# Mọi cổng chỉ mở trên 127.0.0.1: chỉ máy này truy cập được, người ngoài không vào được.
+#
+# Lưu ý: chế độ Docker và chế độ chạy tay (dotnet run, python main.py) đều dùng cổng 5100,
+# chỉ bật một trong hai.
 
 services:
 
-  # Bộ công cụ PDF: gộp, tách, nén, OCR, chuyển đổi...
-  # Mở trên trình duyệt: http://localhost:8080
+  # Bộ công cụ PDF: gộp, tách, nén, OCR, chuyển đổi...  (http://localhost:8080)
   stirling-pdf:
     image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
     container_name: stirling-pdf
     ports:
-      - "127.0.0.1:8080:8080"   # chỉ máy này truy cập được, người ngoài không vào được
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./data/stirling/tessdata:/usr/share/tessdata   # gói ngôn ngữ cho OCR
       - ./data/stirling/configs:/configs               # cài đặt của Stirling
     environment:
       # Tắt đăng nhập để worker gọi API được mà không cần API key.
-      # An toàn vì cổng chỉ mở trên 127.0.0.1 (chỉ máy này vào được).
-      # Nếu sau này mở Stirling ra mạng thì phải bật lại.
+      # An toàn vì cổng chỉ mở trên 127.0.0.1. Nếu sau này mở Stirling ra mạng thì phải bật lại.
       SECURITY_ENABLELOGIN: "false"
-    restart: unless-stopped     # máy khởi động lại thì tự chạy lại
+      # Đọc gói ngôn ngữ OCR từ ./data/stirling/tessdata, nơi có thêm gói tiếng Việt vie.traineddata.
+      # Cách tải gói: xem README, mục "OCR tiếng Việt".
+      TESS_BASE_PATH: /usr/share/tessdata
+      TESSDATA_PREFIX: /usr/share/tessdata
+    restart: unless-stopped
 
-  # Chuyển Word, Excel, PowerPoint, HTML sang PDF qua API
-  # Kiểm tra: http://localhost:3000/health
+  # Chuyển Word, Excel, PowerPoint, HTML sang PDF  (http://localhost:3000/health)
   gotenberg:
     image: gotenberg/gotenberg:8
     container_name: gotenberg
     ports:
       - "127.0.0.1:3000:3000"
     restart: unless-stopped
+
+  # API .NET + trang web React  (http://localhost:5100)
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: api
+    ports:
+      - "127.0.0.1:5100:8080"
+    environment:
+      # Mã bí mật giữa API và worker: đặt WORKER_KEY trong file .env (xem .env.example)
+      WorkerKey: ${WORKER_KEY:-dev-worker-key}
+    volumes:
+      - ./data/api:/data          # database + file người dùng tải lên
+    restart: unless-stopped
+
+  # Worker thường: PDF, ảnh, video, âm thanh
+  worker:
+    build: ./worker
+    container_name: worker
+    environment:
+      WORKER_PROFILE: main
+      API_URL: http://api:8080
+      WORKER_KEY: ${WORKER_KEY:-dev-worker-key}
+      GOTENBERG_URL: http://gotenberg:3000
+      STIRLING_URL: http://stirling-pdf:8080
+    depends_on: [api, gotenberg, stirling-pdf]
+    restart: unless-stopped
+
+  # ---------- Phần AI: chỉ bật khi có profile "ai" (máy có GPU NVIDIA) ----------
+
+  # Chạy mô hình ngôn ngữ cho Tóm tắt, Dịch tài liệu  (http://localhost:11434)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles: [ai]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama:/root/.ollama      # mô hình đã tải (vài GB), giữ lại khi tạo lại container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # Worker AI: chép lời, tách giọng hát, lọc tạp âm, làm nét ảnh, tóm tắt, dịch
+  worker-ai:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.ai
+    container_name: worker-ai
+    profiles: [ai]
+    environment:
+      WORKER_PROFILE: ai
+      API_URL: http://api:8080
+      WORKER_KEY: ${WORKER_KEY:-dev-worker-key}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      MODELS_DIR: /models
+      # Tạo nhạc AI: máy chủ ACE-Step chạy riêng trên máy (xem README, mục "Tạo nhạc AI")
+      ACESTEP_URL: ${ACESTEP_URL:-http://host.docker.internal:8001}
+      # Cookies YouTube (khi YouTube chặn): đặt file vào ./data/cookies/youtube.txt rồi bỏ dấu # dòng dưới
+      # YTDLP_COOKIES: /cookies/youtube.txt
+    volumes:
+      - ./models:/models          # mô hình Whisper, Real-ESRGAN, Demucs... tải lần đầu, giữ lại
+      - ./data/cookies:/cookies:ro
+    depends_on: [api, ollama]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  ollama:
+    name: ollama

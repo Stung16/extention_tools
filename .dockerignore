@@ -1,0 +1,15 @@
+# Những thứ không gửi vào Docker khi build (nặng, hoặc mỗi máy tự có)
+.git
+data
+models
+**/node_modules
+**/bin
+**/obj
+api/data
+api/wwwroot
+worker/.venv
+worker/.venv-ai
+worker/.venv-pdf2zh
+**/__pycache__
+*.log
+.env

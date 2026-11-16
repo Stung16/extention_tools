@@ -1,0 +1,32 @@
+# Image worker AI (dùng GPU NVIDIA): chép lời, tách giọng hát, lọc tạp âm, làm nét ảnh, tóm tắt, dịch.
+#
+# Nền là image CUDA 12.8 có sẵn cuDNN 9: card RTX 50 (Blackwell) cần CUDA 12.8 trở lên,
+# và faster-whisper (CTranslate2) cần cuDNN 9 để chạy trên GPU.
+# Image này nặng (khoảng 8-10 GB). Chỉ build trên máy có GPU: docker compose --profile ai build
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Môi trường Python riêng trong image (Ubuntu 24.04 không cho cài gói pip vào Python của hệ thống)
+RUN python3 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# PyTorch bản CUDA 12.8 (hỗ trợ RTX 50). Cài trước để các thư viện sau không kéo nhầm bản khác.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+WORKDIR /app
+COPY requirements-ai.txt ./
+RUN pip install --no-cache-dir -r requirements-ai.txt
+
+# Dịch PDF giữ bố cục: PDFMathTranslate-next trong môi trường riêng (tránh xung đột thư viện)
+RUN python3 -m venv /venv-pdf2zh && /venv-pdf2zh/bin/pip install --no-cache-dir pdf2zh-next==2.10.2
+
+COPY . .
+
+ENV WORKER_PROFILE=ai \
+    MODELS_DIR=/models \
+    PDF2ZH_BIN=/venv-pdf2zh/bin/pdf2zh_next \
+    PYTHONUNBUFFERED=1
+CMD ["python", "main.py"]
