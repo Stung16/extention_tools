@@ -52,7 +52,17 @@ Lý do: người dùng đang học .NET; worker Python gọi thẳng được c�
   Cổng 5100. WorkerKey lấy từ cấu hình (bản dev: "dev-worker-key").
 - worker/: main.py (vòng lặp polling), handlers/ (mỗi loại job một file, đăng ký trong
   handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
-- Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert);
+- Loại job hiện có (12): "word-to-pdf" (+ .txt), "excel-to-pdf" (+ .csv), "powerpoint-to-pdf"
+  (cả ba dùng chung office_to_pdf.py, gọi Gotenberg /forms/libreoffice/convert; LibreOffice tự
+  nhận loại file theo đuôi); "html-to-pdf" (html_to_pdf.py, Gotenberg /forms/chromium/convert/html,
+  file phải tên index.html; ảnh/CSS file riêng không đi kèm);
+  qua Stirling (stirling_to_pdf.py, mỗi hàm một handler, đều gọi stirling.post):
+  "image-to-pdf" (/convert/img/pdf, fitOption=maintainAspectRatio, autoRotate=true),
+  "markdown-to-pdf", "ebook-to-pdf" (Calibre có sẵn trong image Stirling), "email-to-pdf"
+  (/convert/eml/pdf), "comic-to-pdf" (/convert/cbz/pdf), "svg-to-pdf", "postscript-to-pdf"
+  (/convert/vector/pdf, Ghostscript);
+- handlers/stirling.py: hàm post(endpoint, input_path, work_dir, data) dùng chung, gửi trường
+  fileInput, xử lý 401, báo lỗi nếu kết quả không bắt đầu bằng %PDF;
   "compress-pdf" (gọi Stirling POST /api/v1/misc/compress-pdf, trường fileInput,
   optimizeLevel theo tuỳ chọn "level"; nếu kết quả không nhỏ hơn thì trả lại file gốc).
 - Tuỳ chọn job: mỗi loại job khai báo danh sách JobOption (Name, Label, Default, Choices)
@@ -136,6 +146,19 @@ không cài driver bên trong WSL.
 - Tuỳ chọn mức nén đã chạy thử (16/11/2026): cả 3 mức qua API ra đúng dung lượng; không gửi
   thì dùng 5; gửi 9 bị 400; trên trang web chọn "Mạnh" thì job nhận level 8, file 167KB;
   chuyển sang "Word sang PDF" thì ô tuỳ chọn biến mất.
+- Excel/PowerPoint sang PDF đã chạy thử (16/11/2026) với file .xlsx/.pptx tiếng Việt tạo bằng
+  openpyxl/python-pptx: chữ đúng, công thức =SUM được tính, mỗi slide một trang, gửi .pptx
+  vào excel-to-pdf bị 400.
+- 12 công cụ đổi sang PDF đã chạy thử trọn luồng (16/11/2026) bằng file mẫu tự tạo: .txt, .csv,
+  .jpg, .png, .webp, .html, .md, .epub, .fb2, .eml, .cbz, .svg, .eps, .pptx; chữ tiếng Việt đúng
+  (SVG và ảnh xem bằng mắt qua Stirling /convert/pdf/img). Chưa thử bằng file thật: .mobi,
+  .azw3, .msg, .gif, .tif, .ps, .doc/.xls/.ppt đời cũ.
+- Không thêm CBR (truyện tranh nén RAR): image Stirling không có unrar/7z, chưa thử được.
+  Chưa thêm "URL sang PDF" vì cần ô nhập địa chỉ thay cho ô tải file.
+- Lưu ý Excel sang PDF in đúng như bảng tính hiện ra: cột hẹp mà ô bên cạnh có dữ liệu thì
+  chữ tràn bị cắt (ví dụ "Cà phê sữa đá" thành "Cà phê sữa"). Excel cũng in như vậy.
+  Bảng rộng có thể bị chia ra nhiều trang. Nếu cần, Gotenberg có tuỳ chọn như
+  singlePageSheets/landscape (chưa dùng).
 - Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
   chứ không báo lỗi.
 

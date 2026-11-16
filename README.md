@@ -100,7 +100,17 @@ Cho worker (phải gửi header `X-Worker-Key`):
 
 | Loại job | Tên trên trang | Nhận file | Tuỳ chọn | Dùng gì |
 |---|---|---|---|---|
-| `word-to-pdf` | Word sang PDF | .doc .docx .odt .rtf | (không có) | Gotenberg |
+| `word-to-pdf` | Word sang PDF | .doc .docx .odt .rtf .txt | (không có) | Gotenberg |
+| `excel-to-pdf` | Excel sang PDF | .xls .xlsx .ods .csv | (không có) | Gotenberg |
+| `powerpoint-to-pdf` | PowerPoint sang PDF | .ppt .pptx .odp | (không có) | Gotenberg |
+| `image-to-pdf` | Ảnh sang PDF | .jpg .jpeg .png .webp .bmp .gif .tif .tiff | (không có) | Stirling-PDF |
+| `html-to-pdf` | HTML sang PDF | .html .htm | (không có) | Gotenberg (Chromium) |
+| `markdown-to-pdf` | Markdown sang PDF | .md .markdown | (không có) | Stirling-PDF |
+| `ebook-to-pdf` | Ebook sang PDF | .epub .mobi .azw3 .fb2 | (không có) | Stirling-PDF (Calibre) |
+| `email-to-pdf` | Email sang PDF | .eml .msg | (không có) | Stirling-PDF |
+| `comic-to-pdf` | Truyện tranh (CBZ) sang PDF | .cbz | (không có) | Stirling-PDF |
+| `svg-to-pdf` | SVG sang PDF | .svg | (không có) | Stirling-PDF |
+| `postscript-to-pdf` | PostScript sang PDF | .ps .eps | (không có) | Stirling-PDF |
 | `compress-pdf` | Nén PDF | .pdf | `level`: `4` Nhẹ, `5` Vừa (mặc định), `8` Mạnh | Stirling-PDF |
 
 Ví dụ nén mạnh bằng curl:

@@ -32,7 +32,20 @@ var workerKey = app.Configuration["WorkerKey"]
 // Thêm handler mới ở worker thì thêm một dòng ở đây, trang web sẽ tự hiện công cụ đó.
 var jobTypes = new Dictionary<string, JobTypeInfo>
 {
-    ["word-to-pdf"] = new("Word sang PDF", [".doc", ".docx", ".odt", ".rtf"]),
+    // Đổi sang PDF
+    ["word-to-pdf"] = new("Word sang PDF", [".doc", ".docx", ".odt", ".rtf", ".txt"]),
+    ["excel-to-pdf"] = new("Excel sang PDF", [".xls", ".xlsx", ".ods", ".csv"]),
+    ["powerpoint-to-pdf"] = new("PowerPoint sang PDF", [".ppt", ".pptx", ".odp"]),
+    ["image-to-pdf"] = new("Ảnh sang PDF", [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff"]),
+    ["html-to-pdf"] = new("HTML sang PDF", [".html", ".htm"]),
+    ["markdown-to-pdf"] = new("Markdown sang PDF", [".md", ".markdown"]),
+    ["ebook-to-pdf"] = new("Ebook sang PDF", [".epub", ".mobi", ".azw3", ".fb2"]),
+    ["email-to-pdf"] = new("Email sang PDF", [".eml", ".msg"]),
+    ["comic-to-pdf"] = new("Truyện tranh (CBZ) sang PDF", [".cbz"]),
+    ["svg-to-pdf"] = new("SVG sang PDF", [".svg"]),
+    ["postscript-to-pdf"] = new("PostScript sang PDF", [".ps", ".eps"]),
+
+    // Công cụ PDF khác
     ["compress-pdf"] = new("Nén PDF", [".pdf"],
     [
         // Giá trị là mức nén của Stirling-PDF (1 nhẹ nhất đến 9 mạnh nhất).

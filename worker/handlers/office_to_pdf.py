@@ -1,4 +1,8 @@
-"""Word sang PDF: gửi file cho Gotenberg (chạy trong Docker), nhận về file PDF."""
+"""File Office (Word, Excel, PowerPoint) sang PDF.
+
+Gửi file cho Gotenberg (chạy trong Docker). Bên trong Gotenberg là LibreOffice: nó tự nhận
+ra loại file theo đuôi (.docx, .xlsx, .pptx...), nên một handler dùng chung cho cả ba.
+"""
 
 import os
 from pathlib import Path
