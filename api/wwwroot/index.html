@@ -65,6 +65,13 @@
     }
     .tool[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 
+    /* Tuỳ chọn của công cụ (ví dụ mức nén) */
+    .options { margin: -8px 0 24px; }
+    .option { border: 0; padding: 0; margin: 0 0 12px; }
+    .option legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+    .choice { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+    .choice input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; }
+
     /* Ô kéo thả file */
     .drop {
       display: block;
@@ -125,6 +132,7 @@
     <section class="card" id="form-view">
       <p class="label">1. Chọn công cụ</p>
       <div class="tools" id="tools"><span class="hint">Đang tải danh sách công cụ...</span></div>
+      <div class="options" id="options"></div>
 
       <p class="label">2. Chọn file</p>
       <label class="drop" id="drop">
@@ -152,7 +160,7 @@
   <script>
     // ---------- Lấy các phần tử trên trang ----------
     const $ = (id) => document.getElementById(id);
-    const toolsBox = $("tools"), drop = $("drop"), fileInput = $("file-input");
+    const toolsBox = $("tools"), optionsBox = $("options"), drop = $("drop"), fileInput = $("file-input");
     const fileNameBox = $("file-name"), extHint = $("ext-hint"), formError = $("form-error");
     const submitBtn = $("submit"), formView = $("form-view"), statusView = $("status-view");
     const spinner = $("spinner"), statusText = $("status-text"), statusHint = $("status-hint");
@@ -190,7 +198,33 @@
         btn.setAttribute("aria-pressed", String(tools[i] === tool)));
       extHint.textContent = " (nhận file: " + tool.extensions.join(", ") + ")";
       fileInput.accept = tool.extensions.join(",");
+      renderOptions(tool);
       if (selectedFile) checkFile(selectedFile); // kiểm tra lại file đã chọn với công cụ mới
+    }
+
+    // Vẽ các tuỳ chọn của công cụ (nếu có): mỗi tuỳ chọn là một nhóm nút tròn, chọn sẵn giá trị mặc định.
+    function renderOptions(tool) {
+      optionsBox.innerHTML = "";
+      for (const opt of tool.options || []) {
+        const group = document.createElement("fieldset");
+        group.className = "option";
+        const legend = document.createElement("legend");
+        legend.textContent = opt.label;
+        group.appendChild(legend);
+
+        for (const choice of opt.choices) {
+          const row = document.createElement("label");
+          row.className = "choice";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = opt.name;
+          input.value = choice.value;
+          input.checked = choice.value === opt.default;
+          row.append(input, document.createTextNode(choice.label));
+          group.appendChild(row);
+        }
+        optionsBox.appendChild(group);
+      }
     }
 
     // ---------- Chọn file (bấm hoặc kéo thả) ----------
@@ -227,6 +261,11 @@
       const form = new FormData();
       form.append("type", selectedTool.type);
       form.append("file", selectedFile);
+      // Gửi kèm giá trị đang chọn của từng tuỳ chọn.
+      for (const opt of selectedTool.options || []) {
+        const checked = optionsBox.querySelector(`input[name="${opt.name}"]:checked`);
+        if (checked) form.append(opt.name, checked.value);
+      }
 
       try {
         const res = await fetch("/api/jobs", { method: "POST", body: form });

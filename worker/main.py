@@ -59,7 +59,7 @@ def process(job):
         r.raise_for_status()
         input_path.write_bytes(r.content)
 
-        output_path = handler(input_path, work_dir)
+        output_path = handler(input_path, work_dir, job.get("options") or {})
 
         with open(output_path, "rb") as f:
             r = api.post(
@@ -92,7 +92,8 @@ def main():
             time.sleep(POLL_SECONDS)
             continue
 
-        log.info("Nhận job %s (%s, %s)", job["id"], job["type"], job["originalName"])
+        log.info("Nhận job %s (%s, %s, tuỳ chọn %s)",
+                 job["id"], job["type"], job["originalName"], job.get("options") or {})
         started = time.time()
         try:
             process(job)

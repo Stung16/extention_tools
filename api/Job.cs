@@ -22,6 +22,7 @@ public class Job
     public string InputFile { get; set; } = "";     // tên file đầu vào trong thư mục data/files
     public string? OutputFile { get; set; }         // tên file kết quả (có khi Done)
     public string? Error { get; set; }              // lý do lỗi (có khi Failed)
+    public string Options { get; set; } = "{}";     // tuỳ chọn người dùng chọn, dạng JSON, ví dụ {"level":"5"}
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

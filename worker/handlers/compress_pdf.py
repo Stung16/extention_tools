@@ -12,11 +12,16 @@ STIRLING_URL = os.environ.get("STIRLING_URL", "http://localhost:8080").rstrip("/
 # Nếu sau này bật lại đăng nhập, đặt biến môi trường STIRLING_API_KEY là được, không phải sửa code.
 STIRLING_API_KEY = os.environ.get("STIRLING_API_KEY", "")
 
-# Mức nén từ 1 (nhẹ, giữ chất lượng) đến 9 (mạnh, ảnh mờ hơn). 5 là mức mặc định của Stirling.
-OPTIMIZE_LEVEL = 5
+# Mức nén từ 1 (nhẹ, giữ chất lượng) đến 9 (mạnh, ảnh mờ hơn).
+# Người dùng chọn qua tuỳ chọn "level" (API chỉ cho 4, 5 hoặc 8); không có thì dùng 5.
+DEFAULT_LEVEL = 5
 
 
-def run(input_path: Path, work_dir: Path) -> Path:
+def run(input_path: Path, work_dir: Path, options: dict) -> Path:
+    level = int(options.get("level", DEFAULT_LEVEL))
+    if not 1 <= level <= 9:
+        raise ValueError(f"Mức nén phải từ 1 đến 9, nhận được {level}")
+
     headers = {"X-API-KEY": STIRLING_API_KEY} if STIRLING_API_KEY else {}
     with open(input_path, "rb") as f:
         r = requests.post(
@@ -24,7 +29,7 @@ def run(input_path: Path, work_dir: Path) -> Path:
             headers=headers,
             files={"fileInput": (input_path.name, f, "application/pdf")},
             data={
-                "optimizeLevel": OPTIMIZE_LEVEL,
+                "optimizeLevel": level,
                 "grayscale": "false",
                 "linearize": "false",
                 "normalize": "false",

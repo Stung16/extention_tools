@@ -8,7 +8,8 @@ import requests
 GOTENBERG_URL = os.environ.get("GOTENBERG_URL", "http://localhost:3000").rstrip("/")
 
 
-def run(input_path: Path, work_dir: Path) -> Path:
+def run(input_path: Path, work_dir: Path, options: dict) -> Path:
+    # Công cụ này chưa có tuỳ chọn nào nên bỏ qua options.
     with open(input_path, "rb") as f:
         r = requests.post(
             f"{GOTENBERG_URL}/forms/libreoffice/convert",

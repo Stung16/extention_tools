@@ -75,7 +75,7 @@ Cho người dùng:
 | Lệnh | Việc |
 |---|---|
 | `GET /api/job-types` | Danh sách công cụ (tên, đuôi file được nhận) |
-| `POST /api/jobs` (form: `type`, `file`) | Tạo job |
+| `POST /api/jobs` (form: `type`, `file`, và tuỳ chọn nếu có, ví dụ `level`) | Tạo job |
 | `GET /api/jobs/{id}` | Xem trạng thái |
 | `GET /api/jobs/{id}/output` | Tải file kết quả |
 
@@ -98,10 +98,20 @@ Cho worker (phải gửi header `X-Worker-Key`):
 
 ## Các công cụ đang có
 
-| Loại job | Tên trên trang | Nhận file | Dùng gì |
-|---|---|---|---|
-| `word-to-pdf` | Word sang PDF | .doc .docx .odt .rtf | Gotenberg |
-| `compress-pdf` | Nén PDF | .pdf | Stirling-PDF (mức nén 5/9) |
+| Loại job | Tên trên trang | Nhận file | Tuỳ chọn | Dùng gì |
+|---|---|---|---|---|
+| `word-to-pdf` | Word sang PDF | .doc .docx .odt .rtf | (không có) | Gotenberg |
+| `compress-pdf` | Nén PDF | .pdf | `level`: `4` Nhẹ, `5` Vừa (mặc định), `8` Mạnh | Stirling-PDF |
+
+Ví dụ nén mạnh bằng curl:
+
+```
+curl -F type=compress-pdf -F level=8 -F "file=@tai-lieu.pdf" http://localhost:5100/api/jobs
+```
+
+**Lưu ý khi đổi bảng Jobs:** database được tạo bằng `EnsureCreated`, cách này không tự thêm cột mới
+vào database cũ. Nếu API báo lỗi kiểu `no such column`, xoá file `api/data/jobs.db` rồi chạy lại
+(chỉ làm khi đang phát triển, vì sẽ mất các job cũ).
 - Database (SQLite) và file tải lên nằm ở `api/data/`, không đưa lên Git.
 
 ## Cập nhật khi có thay đổi

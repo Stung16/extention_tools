@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Api;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,15 +28,29 @@ using (var scope = app.Services.CreateScope())
 var workerKey = app.Configuration["WorkerKey"]
     ?? throw new InvalidOperationException("Chưa cấu hình WorkerKey.");
 
-// Các loại job đang hỗ trợ: tên hiển thị và đuôi file được phép.
+// Các loại job đang hỗ trợ: tên hiển thị, đuôi file được phép, và tuỳ chọn (nếu có).
 // Thêm handler mới ở worker thì thêm một dòng ở đây, trang web sẽ tự hiện công cụ đó.
 var jobTypes = new Dictionary<string, JobTypeInfo>
 {
     ["word-to-pdf"] = new("Word sang PDF", [".doc", ".docx", ".odt", ".rtf"]),
-    ["compress-pdf"] = new("Nén PDF", [".pdf"]),
+    ["compress-pdf"] = new("Nén PDF", [".pdf"],
+    [
+        // Giá trị là mức nén của Stirling-PDF (1 nhẹ nhất đến 9 mạnh nhất).
+        // Mức 1-3 gần như không giảm dung lượng, mức 9 làm ảnh quá mờ, nên chỉ cho chọn 3 mức này.
+        new JobOption("level", "Mức nén", Default: "5", Choices:
+        [
+            new("4", "Nhẹ: ảnh nét, file to hơn"),
+            new("5", "Vừa (khuyên dùng)"),
+            new("8", "Mạnh: file nhỏ nhất, ảnh mờ hơn"),
+        ]),
+    ]),
 };
 
 string FilePath(string name) => Path.Combine(filesDir, name);
+
+// Đổi cột Options (chuỗi JSON) thành danh sách tên -> giá trị để trả về.
+Dictionary<string, string> ReadOptions(Job job) =>
+    JsonSerializer.Deserialize<Dictionary<string, string>>(job.Options) ?? [];
 
 // ---------- Trang web ----------
 
@@ -48,11 +63,11 @@ app.UseStaticFiles();
 
 // Danh sách công cụ, để trang web hiện ra cho người dùng chọn.
 app.MapGet("/api/job-types", () =>
-    jobTypes.Select(t => new { Type = t.Key, t.Value.Label, t.Value.Extensions }));
+    jobTypes.Select(t => new { Type = t.Key, t.Value.Label, t.Value.Extensions, t.Value.Options }));
 
 var jobs = app.MapGroup("/api/jobs");
 
-// Tạo job: gửi form gồm "type" và "file".
+// Tạo job: gửi form gồm "type", "file", và các tuỳ chọn (ví dụ "level") nếu công cụ có.
 jobs.MapPost("/", async (HttpRequest request, AppDb db) =>
 {
     var form = await request.ReadFormAsync();
@@ -69,12 +84,24 @@ jobs.MapPost("/", async (HttpRequest request, AppDb db) =>
     if (!allowedExts.Contains(ext))
         return Results.BadRequest(new { error = $"Loại job '{type}' chỉ nhận file: {string.Join(", ", allowedExts)}." });
 
+    // Đọc từng tuỳ chọn: không gửi thì dùng giá trị mặc định; gửi sai thì báo lỗi.
+    var options = new Dictionary<string, string>();
+    foreach (var opt in jobType.Options)
+    {
+        var value = form[opt.Name].ToString();
+        if (value == "") value = opt.Default;
+        if (!opt.Choices.Any(c => c.Value == value))
+            return Results.BadRequest(new { error = $"Giá trị '{value}' không hợp lệ cho tuỳ chọn '{opt.Label}'." });
+        options[opt.Name] = value;
+    }
+
     var job = new Job
     {
         Id = Guid.NewGuid(),
         Type = type,
         Status = JobStatus.Pending,
         OriginalName = Path.GetFileName(file.FileName),
+        Options = JsonSerializer.Serialize(options),
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow,
     };
@@ -98,7 +125,7 @@ jobs.MapGet("/{id:guid}", async (Guid id, AppDb db) =>
     var job = await db.Jobs.FindAsync(id);
     return job is null
         ? Results.NotFound()
-        : Results.Ok(new { job.Id, job.Type, Status = job.Status.ToString(), job.Error, job.CreatedAt, job.UpdatedAt });
+        : Results.Ok(new { job.Id, job.Type, Status = job.Status.ToString(), Options = ReadOptions(job), job.Error, job.CreatedAt, job.UpdatedAt });
 });
 
 // Tải file kết quả (khi job đã Done).
@@ -141,7 +168,7 @@ worker.MapGet("/next", async (AppDb db) =>
             .SetProperty(j => j.UpdatedAt, DateTime.UtcNow));
     if (changed == 0) return Results.NoContent();
 
-    return Results.Ok(new { job.Id, job.Type, job.OriginalName });
+    return Results.Ok(new { job.Id, job.Type, job.OriginalName, Options = ReadOptions(job) });
 });
 
 // Worker tải file đầu vào.
@@ -193,4 +220,12 @@ worker.MapPost("/{id:guid}/fail", async (Guid id, FailRequest body, AppDb db) =>
 app.Run();
 
 record FailRequest(string Error);
-record JobTypeInfo(string Label, string[] Extensions);
+// Một loại job: tên hiển thị, đuôi file được phép, và các tuỳ chọn (có thể không có).
+record JobTypeInfo(string Label, string[] Extensions, JobOption[]? OptionList = null)
+{
+    public JobOption[] Options => OptionList ?? [];
+}
+
+// Một tuỳ chọn: tên kỹ thuật (gửi trong form), tên hiển thị, giá trị mặc định, các lựa chọn.
+record JobOption(string Name, string Label, string Default, OptionChoice[] Choices);
+record OptionChoice(string Value, string Label);

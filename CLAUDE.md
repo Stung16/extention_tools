@@ -54,7 +54,16 @@ Lý do: người dùng đang học .NET; worker Python gọi thẳng được c�
   handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
 - Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert);
   "compress-pdf" (gọi Stirling POST /api/v1/misc/compress-pdf, trường fileInput,
-  optimizeLevel cố định 5; nếu kết quả không nhỏ hơn thì trả lại file gốc).
+  optimizeLevel theo tuỳ chọn "level"; nếu kết quả không nhỏ hơn thì trả lại file gốc).
+- Tuỳ chọn job: mỗi loại job khai báo danh sách JobOption (Name, Label, Default, Choices)
+  trong jobTypes. API đọc giá trị từ form, không gửi thì dùng Default, sai thì 400; lưu vào
+  cột Jobs.Options (chuỗi JSON). /next trả "options" cho worker; handler nhận
+  (input_path, work_dir, options). Trang web tự vẽ nút tròn cho từng tuỳ chọn.
+- Mức nén cho người dùng chọn: 4 Nhẹ, 5 Vừa (mặc định), 8 Mạnh. Đo trên PDF 5,8MB có ảnh
+  1600x1200: mức 1-3 gần như không giảm (~5,7MB); 4: 528KB (ảnh 1248px); 5: 340KB (1088px);
+  6-7: 672KB (to hơn mức 5); 8: 167KB (756px); 9: 67KB (533px, quá mờ).
+- EnsureCreated không thêm cột vào database cũ: đổi entity Job thì phải xoá api/data/jobs.db
+  (chỉ khi phát triển). Trước khi có dữ liệu thật nên chuyển sang EF Core migrations.
   Danh sách loại job (tên hiển thị + đuôi file) khai báo trong biến jobTypes ở api/Program.cs;
   thêm handler mới ở worker thì thêm một dòng ở đó, trang web tự hiện công cụ mới.
 - Trang web: api/wwwroot/index.html, HTML + JS thuần (chưa dùng framework), API phục vụ
@@ -124,6 +133,9 @@ không cài driver bên trong WSL.
   tắt worker thì job nằm chờ, bật lại thì tự xử lý và trang tự chuyển sang "Xong!".
 - Handler nén PDF đã chạy thử (16/11/2026): PDF 5,8MB còn 340KB qua API + worker, chữ tiếng
   Việt giữ nguyên; nhánh "kết quả to hơn thì trả file gốc" và nhánh 401 thử bằng giả lập.
+- Tuỳ chọn mức nén đã chạy thử (16/11/2026): cả 3 mức qua API ra đúng dung lượng; không gửi
+  thì dùng 5; gửi 9 bị 400; trên trang web chọn "Mạnh" thì job nhận level 8, file 167KB;
+  chuyển sang "Word sang PDF" thì ô tuỳ chọn biến mất.
 - Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
   chứ không báo lỗi.
 
@@ -132,7 +144,7 @@ không cài driver bên trong WSL.
 1. Clone sang máy GPU, chạy lại `docker compose up -d`; kiểm tra GPU trong Docker:
    `docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi`
 2. Thêm handler mới (gộp/tách PDF qua Stirling-PDF; gộp cần nhiều file một job).
-3. Cho người dùng chọn mức nén (hiện cố định 5); cần thêm "tuỳ chọn" cho job.
+3. Chuyển database sang EF Core migrations trước khi có dữ liệu thật.
 Để sau: job bị kẹt ở Processing khi worker tắt giữa chừng, retry, xoá file cũ,
 giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB), thanh tiến độ khi tải file lên
 (trang hiện chỉ báo "Đang tải file lên..."), mở API ra internet (HTTPS, chống lạm dụng).
