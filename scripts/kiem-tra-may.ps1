@@ -97,7 +97,7 @@ if (Test-Path $envFile) {
 $vie = Join-Path $root 'data\stirling\tessdata\vie.traineddata'
 if (Test-Path $vie) { Ok "OCR tiếng Việt" "có vie.traineddata" } else { Missing "OCR tiếng Việt" "làm mục 4 trong docs\cai-dat-may-rtx.md" }
 
-foreach ($db in @('data\api\jobs.db', 'api\data\jobs.db')) {
+foreach ($db in @('data\api\jobs.db', 'api\src\CongCuFile.Api\data\jobs.db')) {
     $p = Join-Path $root $db
     if (Test-Path $p) { Warn "Database $db" "nếu tạo từ bản cũ (trước 17/11/2026) và API báo lỗi cột, hãy xoá file này" }
 }
@@ -105,7 +105,7 @@ foreach ($db in @('data\api\jobs.db', 'api\data\jobs.db')) {
 # ---------------------------------------------------------------------------
 Section "3. Chạy tay (bỏ qua mục này nếu chạy tất cả bằng Docker)"
 
-if (Test-Path (Join-Path $root 'api\wwwroot\index.html')) { Ok "Trang web đã build" "api\wwwroot" }
+if (Test-Path (Join-Path $root 'api\src\CongCuFile.Api\wwwroot\index.html')) { Ok "Trang web đã build" "api\src\CongCuFile.Api\wwwroot" }
 else { Warn "Trang web chưa build" "cd web; npm install; npm run build (Docker tự build)" }
 
 $venv = Join-Path $root 'worker\.venv\Scripts\python.exe'

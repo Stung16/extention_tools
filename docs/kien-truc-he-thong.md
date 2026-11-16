@@ -20,10 +20,10 @@ App khách (backend riêng, giữ khoá API)          Người dùng trang web c
 
 | Cửa | Ai dùng | Xác thực | Code |
 |---|---|---|---|
-| `/api/job-types`, `/api/jobs` | Trang web công cụ | Không (ẩn danh) | `api/Endpoints/WebEndpoints.cs` |
-| `/api/jobs/next`, `/heartbeat`, `/input`, `/complete`, `/fail` | Worker | `X-Worker-Key` | `api/Endpoints/WorkerEndpoints.cs` |
-| `/api/admin/...` | App giám sát | `X-Admin-Key` (khác mã worker) | `api/Endpoints/AdminEndpoints.cs` |
-| `/v1/...` | App khách | `Authorization: Bearer <khoá>` | `api/Endpoints/V1Endpoints.cs` |
+| `/api/job-types`, `/api/jobs` | Trang web công cụ | Không (ẩn danh) | `api/src/CongCuFile.Api/Controllers/Web/` |
+| `/api/jobs/next`, `/heartbeat`, `/input`, `/complete`, `/fail` | Worker | `X-Worker-Key` | `api/src/CongCuFile.Api/Controllers/Workers/` |
+| `/api/admin/...` | App giám sát | `X-Admin-Key` (khác mã worker) | `api/src/CongCuFile.Api/Controllers/Admin/` |
+| `/v1/...` | App khách | `Authorization: Bearer <khoá>` | `api/src/CongCuFile.Api/Controllers/V1/` |
 
 Lộ một mã chỉ ảnh hưởng một cửa. Mỗi app khách có khoá riêng (tạo bằng cửa quản trị); database chỉ lưu mã băm
 SHA-256 của khoá. Mỗi app khách chỉ thấy file, lô, job của chính nó.
@@ -45,7 +45,7 @@ có chữ ký HMAC); khi có kho S3, link sẽ trỏ thẳng vào kho (presigned
 
 - **Worker tự hỏi việc** (pull): máy RTX chỉ cần kết nối ra internet; mất mạng/tắt giữa chừng thì cơ chế giữ
   job (lease 2 phút + tín hiệu sống 30 giây, tối đa 3 lượt) tự giao lại.
-- **Kho file là một lớp riêng** (`api/Storage/IFileStore.cs`): code chỉ làm việc với "khoá" (`web/...`,
+- **Kho file là một lớp riêng** (`IFileStore` trong `api/src/CongCuFile.Application/Abstractions/Storage.cs`): code chỉ làm việc với "khoá" (`web/...`,
   `uploads/...`, `results/...`), đổi ổ đĩa ↔ S3 chỉ cần thêm một bản cài đặt.
 - **Lô là khái niệm chính cho app khách**; tiến độ lô tính từ trạng thái job, không lưu trùng.
 - **Ưu tiên**: job lẻ của trang web (Priority 10) làm trước job trong lô (Priority 0).

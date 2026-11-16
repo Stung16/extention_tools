@@ -69,15 +69,18 @@ npm install
 npm run build
 ```
 
-`npm run build` đóng gói vào `api/wwwroot`. Khi sửa giao diện có thể dùng `npm run dev`
+`npm run build` đóng gói vào `api/src/CongCuFile.Api/wwwroot`. Khi sửa giao diện có thể dùng `npm run dev`
 (mở http://localhost:5173, sửa code là trang tự cập nhật; cần API đang chạy).
 
 **API** (cửa sổ terminal 1):
 
 ```
 cd api
-dotnet run
+dotnet run --project src/CongCuFile.Api
 ```
+
+Kiến trúc backend (Clean Architecture, 4 tầng) và cách thêm endpoint: [api/README.md](api/README.md).
+Chạy test backend: `cd api` rồi `dotnet test`.
 
 **Worker thường** (cửa sổ 2):
 
@@ -218,7 +221,7 @@ Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `wor
 
 1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/handlers/`, trả về đường
    dẫn file kết quả; đăng ký trong `worker/handlers/__init__.py` (nhóm `MAIN`, AI hoặc PHOTO).
-2. **API**: thêm một dòng vào `api/JobCatalog.cs` (tên, đuôi file nhận, tuỳ chọn).
+2. **API**: thêm một dòng vào `api/src/CongCuFile.Domain/Catalog/JobCatalog.cs` (tên, đuôi file nhận, tuỳ chọn).
 3. **Trang web**: thêm một dòng vào `web/src/catalog.js` với `job` trùng tên loại job.
    Công cụ chạy trên trình duyệt thì viết component trong `web/src/tools/` và khai báo `client`.
 
@@ -241,7 +244,7 @@ Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `wor
 | `PDF2ZH_BIN` | worker AI | tự tìm `.venv-pdf2zh` | Chương trình pdf2zh_next (dịch PDF giữ bố cục) |
 | `VIENEU_PRECISION` | worker AI | `fp32` | `int8` để đọc nhanh hơn trên CPU hỗ trợ VNNI |
 | `STIRLING_API_KEY` | worker | (không có) | Chỉ cần khi bật lại đăng nhập Stirling |
-| `DataDir` | API | `api/data` | Nơi lưu database (`jobs.db`) và kho file (`files/`) |
+| `DataDir` | API | `api/src/CongCuFile.Api/data` | Nơi lưu database (`jobs.db`) và kho file (`files/`) |
 
 ## Các endpoint của API
 
@@ -265,5 +268,5 @@ Cho app khách: xem mục "API v1 cho app khách" ở trên.
 
 - Mật khẩu (công cụ đặt/gỡ mật khẩu) bị xoá khỏi database ngay khi job xong, không trả ra ngoài,
   và bị che `***` trong log worker.
-- Database tạo bằng `EnsureCreated`: đổi bảng Jobs thì phải xoá `api/data/jobs.db` (chỉ khi phát triển).
+- Database tạo bằng `EnsureCreated`: đổi bảng Jobs thì phải xoá `api/src/CongCuFile.Api/data/jobs.db` (chỉ khi phát triển).
 - Giới hạn mỗi file tải lên: 100 MB.

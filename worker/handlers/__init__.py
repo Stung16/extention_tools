@@ -4,7 +4,7 @@ Mỗi handler nhận (input_path, work_dir, options) và trả về đường d�
   input_path  file người dùng tải lên (None nếu là job dạng đường link, khi đó link ở options["url"])
   options     dict các tuỳ chọn người dùng chọn, ví dụ {"level": "5"} (có thể rỗng)
 Thêm công cụ mới = viết thêm một hàm trong thư mục này và đăng ký ở đây
-(nhớ khai báo thêm loại job trong api/JobCatalog.cs). Nhiều loại job có thể dùng chung một handler.
+(nhớ khai báo thêm loại job trong api/src/CongCuFile.Domain/Catalog/JobCatalog.cs). Nhiều loại job có thể dùng chung một handler.
 
 Có ba nhóm:
   MAIN   chạy được trên máy thường (Stirling-PDF, Gotenberg, Pillow, FFmpeg)

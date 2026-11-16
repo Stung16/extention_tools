@@ -3,7 +3,7 @@
 Máy: Core Ultra 5 245K, RAM 64 GB, RTX 5060 Ti 16 GB, Windows. Làm theo thứ tự từ trên xuống.
 Xong thì chạy script kiểm tra ở cuối: nó báo còn thiếu gì.
 
-> Mọi thứ trong `data/`, `models/`, `.env`, `node_modules/`, `api/wwwroot/`, `.venv*`, `monitor/target/`
+> Mọi thứ trong `data/`, `models/`, `.env`, `node_modules/`, `api/src/CongCuFile.Api/wwwroot/`, `.venv*`, `monitor/target/`
 > **không có trên Git**. Máy mới clone về phải tự tạo lại (các bước dưới đây).
 
 ## 1. Phần mềm cần cài (một lần)
@@ -50,7 +50,7 @@ $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create
 Bỏ dấu `#` ở dòng `COMPOSE_PROFILES=ai` để bật phần AI.
 
 **Đã từng chạy bản cũ trên máy này?** Cấu trúc database đã đổi: xoá (hoặc đổi tên) `data/api/jobs.db`
-(chạy Docker) hoặc `api/data/jobs.db` (chạy tay), nếu không API sẽ báo lỗi kiểu "no such column".
+(chạy Docker) hoặc `api/src/CongCuFile.Api/data/jobs.db` (chạy tay), nếu không API sẽ báo lỗi kiểu "no such column".
 
 ## 3. Chạy hệ thống
 
@@ -88,7 +88,7 @@ API (cửa sổ 1, đọc mã từ `api/appsettings.Development.json`, khi chạ
 `WorkerKey`, `AdminKey`, `Storage__SigningKey`):
 
 ```powershell
-cd api; dotnet run
+cd api; dotnet run --project src/CongCuFile.Api
 ```
 
 Worker main (cửa sổ 2), worker photo (cửa sổ 3), worker AI (cửa sổ 4):
@@ -148,7 +148,7 @@ Lần đầu build vài phút. Mở **Cài đặt** trong app, nhập **Mã qu�
 | API báo "no such column" / lỗi database lúc mở | Database của bản cũ: xoá `jobs.db` (xem mục 2) |
 | API báo "Chưa cấu hình AdminKey" (hoặc WorkerKey, Storage:SigningKey) | Thiếu mã trong `.env` (Docker) hoặc biến môi trường (chạy tay ngoài môi trường Development) |
 | App giám sát báo "mã quản trị không khớp" | Ô Mã quản trị trong Cài đặt phải trùng `ADMIN_KEY` (không phải `WORKER_KEY`) |
-| `npm run build` báo EBUSY | API đang giữ thư mục `api/wwwroot`; script đã tự xoá từng file, nếu vẫn lỗi thì tắt API rồi build lại |
+| `npm run build` báo EBUSY | API đang giữ thư mục `wwwroot` của API; script đã tự xoá từng file, nếu vẫn lỗi thì tắt API rồi build lại |
 | Cổng 5100 đã bị dùng | Đang chạy cả Docker lẫn `dotnet run`: tắt một bên |
 | faster-whisper lỗi `metadata_errors` | Gói `av` phải dưới 16 (`requirements-ai.txt` đã ghim 15.1.0) |
 | Job RAW lỗi "chưa cài rawtherapee-cli" / "exiftool" | Cài theo mục 1, hoặc đặt biến `RAWTHERAPEE_CLI`, `EXIFTOOL` trỏ tới file .exe |

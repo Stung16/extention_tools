@@ -20,7 +20,7 @@ __pycache__/
 
 # Trang web React: thư viện tải về và bản đóng gói (sinh ra bằng "npm install", "npm run build")
 node_modules/
-api/wwwroot/
+api/src/CongCuFile.Api/wwwroot/
 
 # Rust (trình giám sát): file sinh ra khi build
 monitor/target/

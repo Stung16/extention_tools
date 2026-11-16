@@ -22,8 +22,8 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
 ## Kiến trúc
 
 - `web/` React 18 + Vite 5 + react-router 6 (JavaScript, không TypeScript). `npm run build` ->
-  `api/wwwroot` (scripts/clean.mjs xoá FILE cũ trước, vì API đang chạy giữ khoá thư mục -> EBUSY nếu
-  để Vite xoá thư mục). `npm run dev` ở :5173, proxy /api -> :5100. api/wwwroot KHÔNG đưa lên Git.
+  `api/src/CongCuFile.Api/wwwroot` (scripts/clean.mjs xoá FILE cũ trước, vì API đang chạy giữ khoá thư mục
+  -> EBUSY nếu để Vite xoá thư mục). `npm run dev` ở :5173, proxy /api -> :5100. wwwroot KHÔNG đưa lên Git.
   - src/catalog.js: CATEGORIES -> tools {slug, name, desc, icon, job? | client?, faq?}. Có `job` mà API
     hỗ trợ -> dùng được; có `client` -> chạy trên trình duyệt; không có cả hai -> "Sắp có".
   - src/tools/ServerTool.jsx: luồng chung chọn file/dán link -> tuỳ chọn -> useJob (XHR có % tải lên,
@@ -38,14 +38,27 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
     chiều cao ô (cỡ tự động làm mất dấu nặng/chân chữ).
   - pdf.js 4.10.38 vẽ trang bằng requestAnimationFrame: tab/khung trình duyệt bị ẩn thì KHÔNG vẽ
     (gặp khi test trong Browser pane bị ẩn; người dùng thật không bị).
-- `api/` ASP.NET Core minimal API (.NET 10), EF Core + SQLite (EnsureCreated, chưa migration; đổi
-  entity phải xoá jobs.db khi dev). DataDir (mặc định api/data; Docker /data). Cổng 5100 (Docker
-  map 5100->8080). Bắt buộc cấu hình: WorkerKey, AdminKey, Storage:SigningKey (dev có trong
-  appsettings.Development.json: dev-worker-key, dev-admin-key). Thiết kế: docs/kien-truc-he-thong.md.
-  - Cấu trúc: Program.cs (cấu hình) + Endpoints/{Web,Worker,Admin,V1}Endpoints.cs (4 cửa: ẩn danh,
-    X-Worker-Key, X-Admin-Key, Bearer khoá app khách) + JobHelpers.cs (Secrets, UploadLimits, JobRuntime
-    giữ lastSeen/lease/RecoverAbandonedJobs, ValidateOptions dùng chung form + JSON, ApiKeys, KeyFilters)
-    + Platform.cs (ApiClient, Upload, Batch) + Storage/IFileStore + LocalFileStore.
+- `api/` .NET 10, **Clean Architecture** (17/11/2026, người dùng chọn Clean Architecture + Controllers; đợt này
+  chỉ backend, worker/web/monitor làm sau theo cùng nguyên tắc). Hướng dẫn chi tiết: api/README.md.
+  Thiết kế hệ thống: docs/kien-truc-he-thong.md. CongCuFile.sln + Directory.Build.props (net10.0, Nullable,
+  AnalysisLevel latest-recommended, EnforceCodeStyleInBuild) + .editorconfig; build phải 0 cảnh báo.
+  Chạy: `cd api; dotnet run --project src/CongCuFile.Api` (cổng 5100; Docker map 5100->8080). EF Core + SQLite,
+  EnsureCreated (chưa migration; đổi entity phải xoá jobs.db khi dev). DataDir mặc định
+  api/src/CongCuFile.Api/data (Docker /data). Bắt buộc cấu hình WorkerKey, AdminKey, Storage:SigningKey (dev có
+  trong appsettings.Development.json; `dotnet new web --force` từng ghi đè file này, cẩn thận).
+  - Domain: Entities (Job có MarkDone/MarkFailed/ResetForRetry/DownloadName/ForgetSecrets; ApiClient, Upload,
+    Batch), Enums, Catalog/JobCatalog (+ .Lookup.cs), Jobs/JobOptionsValidator, JobPolicy (ưu tiên, 3 lượt).
+  - Application (KHÔNG tham chiếu EF Core/ASP.NET): Common/Result (Error Validation/NotFound/Conflict/Forbidden/
+    Gone; lỗi thường trả Result, không ném), IClock, IncomingFile, FileDownload, settings; Abstractions
+    (IUnitOfWork, IJobRepository... hàm theo nghiệp vụ, IFileStore, ISignedLinkVerifier); service theo nhóm:
+    Jobs/WebJobService, Workers/WorkerJobService + WorkerPresence (singleton), Admin/{Overview,JobAdmin,
+    ApiClient}Service, Uploads/UploadService, Storage/SignedFileService, Batches/BatchService, ClientJobs/...
+  - Infrastructure: AppDbContext (là IUnitOfWork; lỗi SQLite 19 -> UniqueConstraintException), Configurations,
+    Repositories (ExecuteUpdate có điều kiện chống tranh chấp), LocalFileStore, StorageOptions, SystemClock.
+  - Api: Controllers/{Web,Workers,Admin,V1} mỏng (FromResult), Authentication (3 scheme WorkerKey/AdminKey/
+    ApiKey, 401 trả {error}), Common/ApiControllerBase + GlobalExceptionHandler, ApiLayer.cs.
+  - Test: tests/CongCuFile.UnitTests (35) + tests/CongCuFile.IntegrationTests (15; WebApplicationFactory,
+    FakeClock thay IClock nên test hết hạn giữ job không phải chờ). `cd api; dotnet test`.
   - Kho file: khoá "web/<guid>-input.ext", "uploads/<guid>.ext", "results/<guid>.ext" (regex kiểm tra trong
     FileKeys). LocalFileStore ký link /v1/files/{key}?exp&sig[&name] bằng HMAC (PUT tải lên, GET tải về,
     phương thức nằm trong chữ ký). PUT tự nới MaxRequestBodySize đúng bằng size đã khai (Upload:MaxBytes 1 GB).
@@ -55,7 +68,7 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - Ưu tiên: Job.Priority (web 10, lô 0); /next xếp Priority giảm dần rồi CreatedAt.
   - tests/smoke_v1.py: 30 kiểm tra (xác thực, tải lên, lô, idempotency, cô lập app, huỷ, ưu tiên, link,
     nguồn trong overview, thử lại job đã huỷ, khoá app) với worker main thật; đã chạy đúng hết 17/11/2026.
-  - JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai"/"photo", Input
+  - Domain/Catalog/JobCatalog.cs: danh mục loại job (Label, Extensions, Options, Worker "main"/"ai"/"photo", Input
     "file"/"url"/"none", UrlPattern). JobOption: Kind choice/text/password, Pattern, MaxLength, Required, Hint.
   - /next?types=a,b: worker chỉ nhận loại nó làm; API ghi lastSeen theo loại (online nếu < 30 giây).
   - Giữ job (lease): Job.Attempts + Job.LeaseUntil. /next tăng Attempts, đặt hạn 2 phút (JobLeaseSeconds),
@@ -128,7 +141,7 @@ docker-compose.yml có thêm worker-photo (image worker, WORKER_PROFILE=photo).
   image AI ở đây. Ollama image 8,5 GB đã tải (container "ollama" chạy tay, volume "ollama" có qwen2.5:1.5b).
 - Máy chạy thật: Core Ultra 5 245K, RAM 64GB, RTX 5060 Ti 16GB, ổ ~11TB, Windows.
 - Chuyển máy qua Git (github.com/Stung16/extention_tools, private). data/, models/, .env, node_modules,
-  api/wwwroot, .venv* không lên Git. Máy GPU phải làm lại: OCR tiếng Việt (README), .env.
+  api/src/CongCuFile.Api/wwwroot, .venv* không lên Git. Máy GPU phải làm lại: OCR tiếng Việt (README), .env.
 
 ## Đã chạy thử (16/11/2026, máy cá nhân)
 

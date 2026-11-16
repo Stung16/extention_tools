@@ -3,7 +3,7 @@
 // Mỗi công cụ có:
 //   slug    địa chỉ trang, ví dụ "nen-pdf" -> /nen-pdf
 //   name    tên hiển thị;  desc  mô tả ngắn;  icon  chữ ngắn trên biểu tượng
-//   job     loại job xử lý trên máy chủ (khớp api/JobCatalog.cs); API chưa hỗ trợ thì hiện "Sắp có"
+//   job     loại job xử lý trên máy chủ (khớp api/src/CongCuFile.Domain/Catalog/JobCatalog.cs); API chưa hỗ trợ thì hiện "Sắp có"
 //   client  tên công cụ chạy ngay trên trình duyệt (xem src/tools/index.js); file không gửi lên máy chủ
 //   faq     (tuỳ chọn) câu hỏi thường gặp riêng: [[câu hỏi, trả lời], ...]
 // Không có "job" lẫn "client" -> công cụ "Sắp có".

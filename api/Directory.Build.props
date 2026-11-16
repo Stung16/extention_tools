@@ -1,0 +1,13 @@
+<Project>
+  <!-- Cấu hình chung cho MỌI project trong thư mục api/ (file .csproj chỉ còn ghi phần riêng). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Bật bộ phân tích code chuẩn của .NET và báo lỗi định dạng theo .editorconfig khi build. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

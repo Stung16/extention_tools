@@ -1,10 +1,10 @@
-// Xoá các file build cũ trong ../api/wwwroot trước khi build lại.
+// Xoá các file build cũ trong api/src/CongCuFile.Api/wwwroot trước khi build lại.
 // Chỉ xoá file, giữ nguyên thư mục: trên Windows, khi API .NET đang chạy nó giữ khoá các thư mục này,
 // nên xoá cả thư mục (cách mặc định của Vite) sẽ báo lỗi EBUSY.
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const root = resolve(import.meta.dirname, "../../api/wwwroot");
+const root = resolve(import.meta.dirname, "../../api/src/CongCuFile.Api/wwwroot");
 
 function clean(dir) {
   let entries = [];

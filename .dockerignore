@@ -5,8 +5,10 @@ models
 **/node_modules
 **/bin
 **/obj
-api/data
-api/wwwroot
+**/data
+api/src/CongCuFile.Api/wwwroot
+api/tests
+monitor/target
 worker/.venv
 worker/.venv-ai
 worker/.venv-pdf2zh
