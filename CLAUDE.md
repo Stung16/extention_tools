@@ -120,6 +120,10 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
 
 ## Hai máy
 
+Cài máy RTX: docs/cai-dat-may-rtx.md (giữ cập nhật mỗi khi thêm phần mềm/biến cấu hình mới) +
+scripts/kiem-tra-may.ps1 (chỉ đọc; PowerShell 5.1 nên file phải lưu UTF-8 CÓ BOM, không dùng ?? hay ?:).
+docker-compose.yml có thêm worker-photo (image worker, WORKER_PROFILE=photo).
+
 - Máy cá nhân (đang dùng): GTX 1650 4GB. Ổ C chỉ còn khoảng 13 GB (Docker lưu ở ổ C): KHÔNG build
   image AI ở đây. Ollama image 8,5 GB đã tải (container "ollama" chạy tay, volume "ollama" có qwen2.5:1.5b).
 - Máy chạy thật: Core Ultra 5 245K, RAM 64GB, RTX 5060 Ti 16GB, ổ ~11TB, Windows.

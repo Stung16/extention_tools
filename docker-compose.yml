@@ -73,6 +73,17 @@ services:
     depends_on: [api, gotenberg, stirling-pdf]
     restart: unless-stopped
 
+  # Worker ảnh RAW cho nhiếp ảnh gia: RawTherapee + ExifTool (không AI, chạy CPU). Dùng chung image với worker.
+  worker-photo:
+    build: ./worker
+    container_name: worker-photo
+    environment:
+      WORKER_PROFILE: photo
+      API_URL: http://api:8080
+      WORKER_KEY: ${WORKER_KEY:-dev-worker-key}
+    depends_on: [api]
+    restart: unless-stopped
+
   # ---------- Phần AI: chỉ bật khi có profile "ai" (máy có GPU NVIDIA) ----------
 
   # Chạy mô hình ngôn ngữ cho Tóm tắt, Dịch tài liệu  (http://localhost:11434)

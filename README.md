@@ -22,6 +22,9 @@ Công cụ chia làm 2 kiểu:
 
 Báo cáo so sánh với pdfguru và kế hoạch: [docs/bao-cao-so-sanh-pdfguru.md](docs/bao-cao-so-sanh-pdfguru.md).
 
+**Cài máy RTX (máy chạy thật):** làm theo [docs/cai-dat-may-rtx.md](docs/cai-dat-may-rtx.md) (danh sách phần
+mềm, cấu hình, lỗi đã gặp), rồi kiểm tra bằng `powershell -ExecutionPolicy Bypass -File scripts\kiem-tra-may.ps1`.
+
 ## Cách 1: chạy tất cả bằng Docker (dễ nhất)
 
 Cần: Git, Docker Desktop (bật "Use the WSL 2 based engine").
