@@ -48,7 +48,14 @@ cd worker
 python main.py
 ```
 
-## Thử đổi Word sang PDF
+## Dùng trang web
+
+Khi API và Worker đang chạy, mở http://localhost:5100 trên trình duyệt:
+chọn công cụ, kéo thả file vào, bấm "Bắt đầu xử lý", chờ "Xong!" rồi bấm "Tải file kết quả".
+
+Trang web nằm ở `api/wwwroot/index.html` (HTML + JavaScript thuần, do API phục vụ luôn).
+
+## Thử bằng dòng lệnh (curl)
 
 ```
 curl -F type=word-to-pdf -F "file=@duong-dan/toi/file.docx" http://localhost:5100/api/jobs
@@ -67,6 +74,7 @@ Cho người dùng:
 
 | Lệnh | Việc |
 |---|---|
+| `GET /api/job-types` | Danh sách công cụ (tên, đuôi file được nhận) |
 | `POST /api/jobs` (form: `type`, `file`) | Tạo job |
 | `GET /api/jobs/{id}` | Xem trạng thái |
 | `GET /api/jobs/{id}/output` | Tải file kết quả |

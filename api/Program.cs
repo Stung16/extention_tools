@@ -27,15 +27,27 @@ using (var scope = app.Services.CreateScope())
 var workerKey = app.Configuration["WorkerKey"]
     ?? throw new InvalidOperationException("Chưa cấu hình WorkerKey.");
 
-// Các loại job đang hỗ trợ, và đuôi file được phép cho từng loại.
-var jobTypes = new Dictionary<string, string[]>
+// Các loại job đang hỗ trợ: tên hiển thị và đuôi file được phép.
+// Thêm handler mới ở worker thì thêm một dòng ở đây, trang web sẽ tự hiện công cụ đó.
+var jobTypes = new Dictionary<string, JobTypeInfo>
 {
-    ["word-to-pdf"] = [".doc", ".docx", ".odt", ".rtf"],
+    ["word-to-pdf"] = new("Word sang PDF", [".doc", ".docx", ".odt", ".rtf"]),
 };
 
 string FilePath(string name) => Path.Combine(filesDir, name);
 
+// ---------- Trang web ----------
+
+// Phục vụ các file trong thư mục wwwroot (index.html...).
+// Mở http://localhost:5100 là thấy trang upload.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // ---------- Endpoint cho người dùng (website gọi) ----------
+
+// Danh sách công cụ, để trang web hiện ra cho người dùng chọn.
+app.MapGet("/api/job-types", () =>
+    jobTypes.Select(t => new { Type = t.Key, t.Value.Label, t.Value.Extensions }));
 
 var jobs = app.MapGroup("/api/jobs");
 
@@ -46,8 +58,9 @@ jobs.MapPost("/", async (HttpRequest request, AppDb db) =>
     var type = form["type"].ToString();
     var file = form.Files["file"];
 
-    if (!jobTypes.TryGetValue(type, out var allowedExts))
+    if (!jobTypes.TryGetValue(type, out var jobType))
         return Results.BadRequest(new { error = $"Không hỗ trợ loại job '{type}'." });
+    var allowedExts = jobType.Extensions;
     if (file is null || file.Length == 0)
         return Results.BadRequest(new { error = "Thiếu file." });
 
@@ -179,3 +192,4 @@ worker.MapPost("/{id:guid}/fail", async (Guid id, FailRequest body, AppDb db) =>
 app.Run();
 
 record FailRequest(string Error);
+record JobTypeInfo(string Label, string[] Extensions);

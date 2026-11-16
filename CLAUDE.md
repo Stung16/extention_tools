@@ -53,6 +53,12 @@ Lý do: người dùng đang học .NET; worker Python gọi thẳng được c�
 - worker/: main.py (vòng lặp polling), handlers/ (mỗi loại job một file, đăng ký trong
   handlers/__init__.py). Mỗi handler nhận (input_path, work_dir), trả về đường dẫn file kết quả.
 - Loại job hiện có: "word-to-pdf" (gọi Gotenberg /forms/libreoffice/convert).
+  Danh sách loại job (tên hiển thị + đuôi file) khai báo trong biến jobTypes ở api/Program.cs;
+  thêm handler mới ở worker thì thêm một dòng ở đó, trang web tự hiện công cụ mới.
+- Trang web: api/wwwroot/index.html, HTML + JS thuần (chưa dùng framework), API phục vụ
+  luôn qua UseDefaultFiles/UseStaticFiles. Trang gọi GET /api/job-types để hiện công cụ,
+  kiểm tra đuôi file trên trình duyệt, POST /api/jobs, rồi hỏi trạng thái mỗi 2 giây.
+  Chờ Pending quá 15 giây thì báo "máy xử lý đang bận hoặc đang tắt".
 
 ## Hai máy
 
@@ -108,6 +114,9 @@ không cài driver bên trong WSL.
 - Khung API + Worker đã chạy thử trọn luồng (16/11/2026): file .docx tiếng Việt thành PDF
   đúng chữ; sai key bị 401; hàng đợi trống trả 204; sai đuôi file bị 400; Gotenberg không
   gọi được thì job thành Failed kèm lý do.
+- Trang web upload đã chạy thử trên trình duyệt (16/11/2026): chặn sai đuôi file, Word
+  thành PDF, tên file tiếng Việt giữ đúng khi tải về, giao diện điện thoại không tràn ngang;
+  tắt worker thì job nằm chờ, bật lại thì tự xử lý và trang tự chuyển sang "Xong!".
 - Lưu ý: LibreOffice dễ tính, file .docx hỏng vẫn được in ra PDF như văn bản thuần
   chứ không báo lỗi.
 
@@ -115,7 +124,7 @@ không cài driver bên trong WSL.
 
 1. Clone sang máy GPU, chạy lại `docker compose up -d`; kiểm tra GPU trong Docker:
    `docker run --rm --gpus all nvidia/cuda:12.9.0-base-ubuntu22.04 nvidia-smi`
-2. Làm trang web đơn giản để tải file lên và tải kết quả về (hiện chỉ thử bằng curl).
-3. Thêm handler mới (ví dụ nén/gộp PDF qua Stirling-PDF, cần xử lý đăng nhập/API key).
+2. Thêm handler mới (ví dụ nén/gộp PDF qua Stirling-PDF, cần xử lý đăng nhập/API key).
 Để sau: job bị kẹt ở Processing khi worker tắt giữa chừng, retry, xoá file cũ,
-giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB).
+giới hạn dung lượng upload (Kestrel mặc định khoảng 30MB), thanh tiến độ khi tải file lên
+(trang hiện chỉ báo "Đang tải file lên..."), mở API ra internet (HTTPS, chống lạm dụng).
