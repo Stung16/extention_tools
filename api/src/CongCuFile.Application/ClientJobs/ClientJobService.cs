@@ -1,6 +1,7 @@
 using CongCuFile.Application.Abstractions;
 using CongCuFile.Application.Batches;
 using CongCuFile.Application.Common;
+using CongCuFile.Domain.Jobs;
 
 namespace CongCuFile.Application.ClientJobs;
 
@@ -22,6 +23,7 @@ public sealed class ClientJobService(IJobRepository jobs, IFileStore store, IClo
     {
         var job = await jobs.FindForClientAsync(id, clientId, ct);
         if (job is null) return Error.NotFound("Không tìm thấy job.");
+        if (job.FilesDeleted) return Error.Gone(JobPolicy.FilesDeletedMessage);
         if (!job.HasResult) return Error.Conflict($"Job chưa có kết quả (trạng thái: {job.Status}).");
         if (!store.Exists(job.OutputFile!)) return Error.Gone("File kết quả không còn trên máy chủ.");
 

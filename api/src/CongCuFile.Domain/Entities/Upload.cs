@@ -21,4 +21,6 @@ public class Upload
         Size = size;
         Status = UploadStatus.Uploaded;
     }
+
+    public void MarkExpired() => Status = UploadStatus.Expired;
 }

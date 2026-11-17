@@ -1,4 +1,5 @@
 using CongCuFile.Api.Authentication;
+using CongCuFile.Api.Background;
 using CongCuFile.Api.Common;
 using CongCuFile.Application.Common;
 using Microsoft.AspNetCore.Authentication;
@@ -24,6 +25,9 @@ public static class ApiLayer
             .AddScheme<AuthenticationSchemeOptions, AdminKeyHandler>(AuthSchemes.Admin, null)
             .AddScheme<AuthenticationSchemeOptions, ApiKeyHandler>(AuthSchemes.ApiKey, null);
         services.AddAuthorization();
+
+        // Việc chạy nền: tự dọn file cũ.
+        services.AddHostedService<FileCleanupWorker>();
 
         // Form tải lên của trang web: tối đa 100 MB (mặc định của ASP.NET chỉ khoảng 30 MB).
         // Riêng PUT file của API v1 tự nới giới hạn bằng đúng dung lượng đã khai (xem SignedFilesController).

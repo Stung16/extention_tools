@@ -36,6 +36,12 @@ public class Job
     // Số càng lớn càng được làm trước (xem JobPolicy).
     public int Priority { get; set; }
 
+    // Lúc các file của job (file gốc, kết quả) bị tự động xoá vì hết thời gian lưu (xem FileCleanupService).
+    // Dòng job vẫn giữ lại cho lịch sử và thống kê.
+    public DateTime? FilesDeletedAt { get; set; }
+
+    public bool FilesDeleted => FilesDeletedAt is not null;
+
     public bool HasResult => Status == JobStatus.Done && OutputFile is not null;
 
     // ---------- Đọc / ghi tuỳ chọn ----------
@@ -87,6 +93,8 @@ public class Job
         CreatedAt = now;
         UpdatedAt = now;
     }
+
+    public void MarkFilesDeleted(DateTime now) => FilesDeletedAt = now;
 
     // Tên khi tải kết quả về: tên file gốc + đuôi của kết quả. Kết quả cùng đuôi với file gốc (nén...)
     // thì thêm "-ket-qua" để người dùng không nhầm với file gốc.

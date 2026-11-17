@@ -1,5 +1,6 @@
 using CongCuFile.Application.Abstractions;
 using CongCuFile.Domain.Entities;
+using CongCuFile.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CongCuFile.Infrastructure.Persistence.Repositories;
@@ -26,6 +27,15 @@ internal sealed class UploadRepository(AppDbContext db) : IUploadRepository
 
     public Task<Dictionary<Guid, Upload>> FindForClientAsync(Guid clientId, IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         db.Uploads.AsNoTracking().Where(u => u.ClientId == clientId && ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, ct);
+
+    // Có theo dõi thay đổi: FileCleanupService đánh dấu Expired rồi lưu.
+    public Task<List<Upload>> ListExpiredAsync(DateTime before, int limit, CancellationToken ct) =>
+        db.Uploads
+            .Where(u => u.Status != UploadStatus.Expired && u.CreatedAt < before
+                        && !db.Jobs.Any(j => j.UploadId == u.Id && (j.Status == JobStatus.Pending || j.Status == JobStatus.Processing)))
+            .OrderBy(u => u.CreatedAt)
+            .Take(limit)
+            .ToListAsync(ct);
 }
 
 internal sealed class ApiClientRepository(AppDbContext db) : IApiClientRepository

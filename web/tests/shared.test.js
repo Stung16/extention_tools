@@ -61,9 +61,11 @@ describe("trang công cụ", () => {
   it("câu hỏi chung: giới hạn file chỉ hiện với công cụ máy chủ", () => {
     const server = faqItems(findTool("nen-pdf"), { extensions: [".pdf"] }).map(([q]) => q);
     expect(server).toContain("File tối đa bao nhiêu?");
+    expect(server).toContain("File của tôi được giữ trên máy chủ bao lâu?");
     expect(server[0]).toBe("Nén có làm mờ chữ không?"); // câu riêng đứng trước
     const client = faqItems(findTool("gop-pdf"), null).map(([q]) => q);
     expect(client).not.toContain("File tối đa bao nhiêu?");
+    expect(client).not.toContain("File của tôi được giữ trên máy chủ bao lâu?"); // file không lên máy chủ
   });
 });
 

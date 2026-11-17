@@ -1,7 +1,7 @@
 // Nội dung phần "Cách dùng" và "Câu hỏi thường gặp" của trang công cụ (hàm thuần, test được).
 //   type: loại job lấy từ API (null nếu là công cụ chạy trên trình duyệt hoặc API chưa hỗ trợ)
 
-import { MAX_UPLOAD_MB } from "@/shared/lib/files";
+import { FILE_KEEP_HOURS, MAX_UPLOAD_MB } from "@/shared/lib/files";
 
 const DONE_STEP = 'Chờ tới khi báo "Xong!", rồi tải file kết quả về máy.';
 
@@ -39,6 +39,10 @@ export function faqItems(tool, type) {
   items.push(["Công cụ này có mất phí không?", "Hiện tại bạn dùng miễn phí."]);
   if (!tool.client) {
     items.push(["File tối đa bao nhiêu?", `Mỗi file tối đa ${MAX_UPLOAD_MB} MB.`]);
+    items.push([
+      "File của tôi được giữ trên máy chủ bao lâu?",
+      `File bạn gửi lên và file kết quả tự động bị xoá khỏi máy chủ ${FILE_KEEP_HOURS} giờ sau khi xử lý xong. Hãy tải kết quả về trước khi hết hạn.`,
+    ]);
     items.push([
       "File của tôi được xử lý ở đâu?",
       "File được gửi lên máy chủ của chúng tôi để xử lý bằng phần mềm mã nguồn mở, không gửi cho bên thứ ba.",

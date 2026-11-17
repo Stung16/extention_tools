@@ -58,6 +58,6 @@ có chữ ký HMAC); khi có kho S3, link sẽ trỏ thẳng vào kho (presigned
 |---|---|---|
 | 1 | Khoá app khách, lô, cửa `/v1`, lớp kho file, mã quản trị riêng, ưu tiên, worker ảnh RAW | Đang làm (RAW chờ thử với RawTherapee thật) |
 | 2 | Kho kiểu S3 chạy local bằng MinIO; app khách và worker tải file thẳng với kho | |
-| 3 | Webhook báo app khách khi lô xong (có chữ ký, gửi lại khi lỗi), chia lượt công bằng giữa các app, tự xoá file cũ, app giám sát xem theo lô | |
+| 3 | Webhook báo app khách khi lô xong (có chữ ký, gửi lại khi lỗi), chia lượt công bằng giữa các app, ~~tự xoá file cũ~~ (xong 17/11/2026: trang web 2 giờ, app khách 24 giờ), app giám sát xem theo lô | Đang làm |
 | 4 | Production: PostgreSQL + EF Core migrations, kho S3 thật (ví dụ Cloudflare R2), HTTPS, tên miền | |
 | sau | Cứu ảnh bằng AI trung thực trên GPU (khử nhiễu mạnh, phóng to ×2) có chốt kiểm tra độ trung thực | |

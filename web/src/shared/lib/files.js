@@ -3,6 +3,9 @@
 // Giới hạn mỗi file gửi lên máy chủ (khớp giới hạn form 100 MB của API).
 export const MAX_UPLOAD_MB = 100;
 
+// Máy chủ tự xoá file gốc và file kết quả sau chừng này giờ (khớp Cleanup:WebFileHours của API, mặc định 2).
+export const FILE_KEEP_HOURS = 2;
+
 // Đuôi file viết thường, ví dụ "Báo cáo.PDF" -> ".pdf"
 export function extOf(name) {
   const i = name.lastIndexOf(".");

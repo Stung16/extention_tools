@@ -14,6 +14,8 @@ public sealed class JobAdminService(IJobRepository jobs, IUnitOfWork unitOfWork,
         var job = await jobs.FindAsync(id, ct);
         if (job is null) return Error.NotFound("Không tìm thấy job.");
         if (!JobPolicy.CanRetry(job.Status)) return Error.Conflict("Chỉ thử lại được job đang lỗi hoặc đã huỷ.");
+        if (job.FilesDeleted && job.ClientId is null)
+            return Error.Conflict("File gốc của job này đã được tự động xoá (hết thời gian lưu), không thử lại được.");
         if (job.InputFile != "" && !store.Exists(job.InputFile))
             return Error.Conflict("File gốc của job này không còn trên máy chủ.");
 

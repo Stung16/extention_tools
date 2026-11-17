@@ -236,6 +236,8 @@ Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `wor
 | `ADMIN_KEY` / `AdminKey` | .env, API, app giám sát | `dev-admin-key` | Mã cửa quản trị (app giám sát, tạo khoá app khách). **Đổi trước khi mở ra internet** |
 | `STORAGE_SIGNING_KEY` / `Storage:SigningKey` | .env, API | (dev có sẵn) | Khoá ký link tải lên/tải về của API v1. **Đổi trước khi mở ra internet** |
 | `Upload:MaxBytes` | API | 1 GB | Dung lượng tối đa mỗi file tải lên qua API v1 (form trang web vẫn 100 MB) |
+| `Cleanup:WebFileHours`, `Cleanup:ClientFileHours` | API | 2, 24 | Tự xoá file sau bấy nhiêu giờ: job trang web / app khách (xem api/README.md) |
+| `Cleanup:IntervalMinutes` | API | 10 | Chu kỳ dọn file cũ; `0` = tắt |
 | `WORKER_PROFILE` | worker | `main` | `main`, `ai`, `photo` hoặc `all` |
 | `RAWTHERAPEE_CLI`, `EXIFTOOL` | worker photo | tự tìm (PATH, thư mục cài chuẩn) | Đường dẫn chương trình rửa ảnh RAW |
 | `API_URL`, `GOTENBERG_URL`, `STIRLING_URL` | worker | localhost:5100 / 3000 / 8080 | Địa chỉ các dịch vụ |

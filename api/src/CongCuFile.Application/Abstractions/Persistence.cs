@@ -46,6 +46,9 @@ public interface IJobRepository
     Task<Dictionary<JobStatus, int>> CountByStatusAsync(CancellationToken ct = default);
     Task<List<Job>> ListActiveAsync(CancellationToken ct = default);
     Task<List<Job>> ListFinishedSinceAsync(DateTime since, CancellationToken ct = default);
+
+    // Dọn file: job đã kết thúc, chưa xoá file, kết thúc trước mốc (job trang web và job app khách có mốc riêng).
+    Task<List<Job>> ListWithExpiredFilesAsync(DateTime webBefore, DateTime clientBefore, int limit, CancellationToken ct = default);
 }
 
 public interface IBatchRepository
@@ -60,6 +63,9 @@ public interface IUploadRepository
     void Add(Upload upload);
     Task<Upload?> FindByStorageKeyAsync(string storageKey, CancellationToken ct = default);
     Task<Dictionary<Guid, Upload>> FindForClientAsync(Guid clientId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
+
+    // Dọn file: file tải lên trước mốc, chưa xoá, và không còn job nào đang chờ / đang chạy dùng tới.
+    Task<List<Upload>> ListExpiredAsync(DateTime before, int limit, CancellationToken ct = default);
 }
 
 public interface IApiClientRepository

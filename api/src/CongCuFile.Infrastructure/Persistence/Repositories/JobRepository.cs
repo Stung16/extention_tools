@@ -80,4 +80,14 @@ internal sealed class JobRepository(AppDbContext db) : IJobRepository
             .Where(j => (j.Status == JobStatus.Done || j.Status == JobStatus.Failed || j.Status == JobStatus.Cancelled) && j.UpdatedAt >= since)
             .OrderByDescending(j => j.UpdatedAt)
             .ToListAsync(ct);
+
+    // Có theo dõi thay đổi (không AsNoTracking): FileCleanupService đánh dấu FilesDeletedAt rồi lưu.
+    public Task<List<Job>> ListWithExpiredFilesAsync(DateTime webBefore, DateTime clientBefore, int limit, CancellationToken ct) =>
+        db.Jobs
+            .Where(j => j.FilesDeletedAt == null
+                        && (j.Status == JobStatus.Done || j.Status == JobStatus.Failed || j.Status == JobStatus.Cancelled)
+                        && (j.ClientId == null ? j.UpdatedAt < webBefore : j.UpdatedAt < clientBefore))
+            .OrderBy(j => j.UpdatedAt)
+            .Take(limit)
+            .ToListAsync(ct);
 }

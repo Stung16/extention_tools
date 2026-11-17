@@ -1,4 +1,5 @@
 import { outputUrl } from "@/api/jobsApi";
+import { FILE_KEEP_HOURS } from "@/shared/lib/files";
 import { formatSize } from "@/shared/lib/format";
 import { ToolGrid } from "@/shared/components/ToolCard";
 import { savedPercent, waitNotice } from "./jobProgress";
@@ -77,6 +78,7 @@ export default function JobStatus({
         <a className="btn" href={outputUrl(id)}>
           Tải file xuống
         </a>
+        <p className="hint-line">File được giữ {FILE_KEEP_HOURS} giờ, sau đó tự xoá khỏi máy chủ.</p>
         <button className="btn secondary" type="button" onClick={onAgain}>
           {againLabel}
         </button>

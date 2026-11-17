@@ -61,7 +61,18 @@ public static class DependencyInjection
         services.AddSingleton(new JobLeaseSettings(TimeSpan.FromSeconds(configuration.GetValue("JobLeaseSeconds", 120))));
         services.AddSingleton(new UploadSettings(WebMaxBytes, configuration.GetValue("Upload:MaxBytes", DefaultApiMaxBytes)));
 
+        // Tự xoá file sau: 2 giờ với job trang web, 24 giờ với app khách (Cleanup:WebFileHours, Cleanup:ClientFileHours).
+        services.AddSingleton(new RetentionSettings(
+            TimeSpan.FromHours(PositiveHours(configuration, "Cleanup:WebFileHours", 2)),
+            TimeSpan.FromHours(PositiveHours(configuration, "Cleanup:ClientFileHours", 24))));
+
         return services;
+    }
+
+    private static double PositiveHours(IConfiguration configuration, string key, double fallback)
+    {
+        var hours = configuration.GetValue(key, fallback);
+        return hours > 0 ? hours : throw new InvalidOperationException($"{key} phải lớn hơn 0 (đang là {hours}).");
     }
 
     // Tạo database và các bảng nếu chưa có.
@@ -69,6 +80,27 @@ public static class DependencyInjection
     public static void InitializeDatabase(this IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+
+        // EnsureCreated không thêm cột vào bảng đã có. Tạm thời (tới khi dùng migrations) tự thêm các cột mới
+        // ở đây, để database đang chạy không phải xoá. Thêm cột mới vào thực thể thì thêm một dòng.
+        AddColumnIfMissing(db, "Jobs", "FilesDeletedAt", "TEXT NULL");
+    }
+
+    private static void AddColumnIfMissing(AppDbContext db, string table, string column, string definition)
+    {
+        // Tên bảng/cột là hằng số trong code; vẫn chặn ký tự lạ vì câu ALTER không dùng tham số cho tên được.
+        if (!table.All(char.IsAsciiLetterOrDigit) || !column.All(char.IsAsciiLetterOrDigit))
+            throw new ArgumentException("Tên bảng/cột chỉ được gồm chữ và số.");
+
+        var exists = db.Database
+            .SqlQuery<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info({table}) WHERE name = {column}")
+            .AsEnumerable()
+            .First() > 0;
+        if (exists) return;
+#pragma warning disable EF1003 // tên bảng/cột đã kiểm tra chỉ gồm chữ và số ở trên, definition là hằng số trong code
+        db.Database.ExecuteSqlRaw("ALTER TABLE \"" + table + "\" ADD COLUMN \"" + column + "\" " + definition);
+#pragma warning restore EF1003
     }
 }

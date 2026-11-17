@@ -40,6 +40,8 @@ public sealed class BatchService(
         foreach (var id in ids)
         {
             if (!found.TryGetValue(id, out var u)) return Error.Validation($"Không tìm thấy file {id}.");
+            if (u.Status == UploadStatus.Expired)
+                return Error.Validation($"File {u.FileName} đã được tự động xoá vì hết thời gian lưu. Hãy tải lên lại.");
             if (u.Status != UploadStatus.Uploaded) return Error.Validation($"File {u.FileName} chưa tải lên xong.");
             if (!jobType.Extensions.Contains(u.Ext))
                 return Error.Validation($"File {u.FileName}: công cụ này chỉ nhận {string.Join(", ", jobType.Extensions)}.");

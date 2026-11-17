@@ -207,6 +207,9 @@ docker-compose.yml có thêm worker-photo (image worker, WORKER_PROFILE=photo).
   làm, KHÔNG phải việc của mình) gọi API v1. Lộ trình bước 1-4 trong docs/kien-truc-he-thong.md. Nhiếp ảnh gia:
   ảnh RAW đa dạng, xử lý nhiều ảnh, trung thực (không AI vẽ lại, không đổi mặt), không nhãn/metadata AI.
 - Đã làm (16/11/2026): job kẹt khi worker tắt giữa chừng (lease + heartbeat, thử tắt worker thật: lượt 2 xong).
-  Còn: bỏ container_name của worker để --scale, xoá file cũ (FAQ không hứa tự xoá), EF Core
+  Đã làm (17/11/2026): tự xoá file cũ (FileCleanupService + FileCleanupWorker 10 phút; trang web 2 giờ, app khách 24
+  giờ; Cleanup:WebFileHours/ClientFileHours/IntervalMinutes; Job.FilesDeletedAt, UploadStatus.Expired; tải về 410;
+  InitializeDatabase tự ALTER TABLE thêm cột mới qua AddColumnIfMissing; web FILE_KEEP_HOURS = 2 trong FAQ).
+  Còn: bỏ container_name của worker để --scale, EF Core
   migrations, xem trước dung lượng từng mức nén, mở ra internet (HTTPS, chống lạm dụng, đăng nhập, gói
   trả phí), tên thương hiệu thật.

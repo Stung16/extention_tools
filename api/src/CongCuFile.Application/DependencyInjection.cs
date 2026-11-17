@@ -2,6 +2,7 @@ using CongCuFile.Application.Admin;
 using CongCuFile.Application.Batches;
 using CongCuFile.Application.ClientJobs;
 using CongCuFile.Application.Jobs;
+using CongCuFile.Application.Maintenance;
 using CongCuFile.Application.Storage;
 using CongCuFile.Application.Uploads;
 using CongCuFile.Application.Workers;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<SignedFileService>();
         services.AddScoped<BatchService>();
         services.AddScoped<ClientJobService>();
+        services.AddScoped<FileCleanupService>();
         return services;
     }
 }

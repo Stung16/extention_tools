@@ -18,6 +18,12 @@ public static class JobPolicy
 
     public static bool CanRetry(JobStatus status) => status is JobStatus.Failed or JobStatus.Cancelled;
 
+    // Job đã kết thúc (không còn ai cần tới file của nó, trừ người tải kết quả về).
+    public static bool IsFinished(JobStatus status) => status is JobStatus.Done or JobStatus.Failed or JobStatus.Cancelled;
+
+    public const string FilesDeletedMessage =
+        "File đã được tự động xoá khỏi máy chủ vì hết thời gian lưu. Hãy gửi lại file để xử lý lần nữa.";
+
     public static string AbandonedError(int attempts) =>
         $"Máy xử lý bị dừng giữa chừng {attempts} lần với file này. File có thể quá nặng; hãy thử file nhỏ hơn hoặc thử lại sau.";
 }

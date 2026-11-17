@@ -36,6 +36,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("WorkerKey", WorkerKey);
         builder.UseSetting("AdminKey", AdminKey);
         builder.UseSetting("Storage:SigningKey", "test-signing-key");
+        builder.UseSetting("Cleanup:IntervalMinutes", "0"); // test tự gọi FileCleanupService khi cần
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IClock>();

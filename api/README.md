@@ -73,7 +73,24 @@ Ví dụ worker báo xong (`POST /api/jobs/{id}/complete`):
    (dùng `ApiFactory`, `TestApi`, đồng hồ giả `api.Clock.Advance(...)`).
 
 **Đổi cấu trúc bảng**: sửa thực thể ở Domain (và `Configurations/` nếu cần index). Hiện dùng `EnsureCreated`
-(chưa có migrations), nên khi dev phải xoá file `jobs.db`. EF Core migrations sẽ thêm khi lên production.
+(chưa có migrations): bảng mới thì tự tạo; **cột mới** vào bảng đã có thì thêm một dòng `AddColumnIfMissing(...)`
+trong `Infrastructure/DependencyInjection.cs` (`InitializeDatabase`), để database đang chạy không phải xoá.
+EF Core migrations sẽ thay cách này khi lên production.
+
+## Tự xoá file cũ
+
+`Application/Maintenance/FileCleanupService.cs`, chạy nền mỗi 10 phút (`Api/Background/FileCleanupWorker.cs`):
+
+| Loại | Xoá khi | Cấu hình (mặc định) |
+|---|---|---|
+| Job trang web | kết thúc quá 2 giờ: xoá file gốc + kết quả | `Cleanup:WebFileHours` (2) |
+| Job app khách | kết thúc quá 24 giờ: xoá file kết quả | `Cleanup:ClientFileHours` (24) |
+| File app khách tải lên | tải lên quá 24 giờ **và** không còn job đang chờ / đang chạy dùng tới | `Cleanup:ClientFileHours` |
+
+Chu kỳ dọn: `Cleanup:IntervalMinutes` (10; `0` = tắt). Job đang chờ / đang chạy không bao giờ bị xoá file. Dòng job vẫn
+giữ (đánh dấu `FilesDeletedAt`) cho lịch sử và thống kê; tải kết quả sau đó trả **410** kèm câu báo; job lỗi đã bị
+dọn thì không thử lại được; lô mới dùng file tải lên đã bị dọn thì báo "hãy tải lên lại". Đổi thời gian trang web thì sửa
+cả `FILE_KEEP_HOURS` trong `web/src/shared/lib/files.js` (câu hỏi thường gặp, dòng dưới nút tải về).
 
 ## Test
 
@@ -81,5 +98,5 @@ Ví dụ worker báo xong (`POST /api/jobs/{id}/complete`):
   ký/kiểm tra link, khoá API.
 - `tests/CongCuFile.IntegrationTests`: khởi động API thật trong bộ nhớ (database + kho file trong thư mục tạm):
   xác thực từng cửa, vòng đời job, giữ job/giao lại/quá 3 lượt, lô + Idempotency-Key, huỷ, link kết quả hết hạn,
-  mỗi app chỉ thấy dữ liệu của mình, ưu tiên job trang web, thao tác quản trị.
+  mỗi app chỉ thấy dữ liệu của mình, ưu tiên job trang web, thao tác quản trị, tự xoá file cũ (CleanupTests).
 - `../tests/smoke_v1.py`: kiểm tra với **worker Python thật** (chạy API trước, xem README gốc).

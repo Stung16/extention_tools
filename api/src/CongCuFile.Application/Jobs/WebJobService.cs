@@ -104,6 +104,7 @@ public sealed class WebJobService(
     {
         var job = await jobs.FindAsync(id, ct);
         if (job is null) return Error.NotFound("Không tìm thấy job.");
+        if (job.FilesDeleted) return Error.Gone(JobPolicy.FilesDeletedMessage);
         if (!job.HasResult) return Error.Conflict($"Job chưa xong (trạng thái: {job.Status}).");
         if (!store.Exists(job.OutputFile!)) return Error.NotFound("File kết quả không còn trên máy chủ.");
         return new FileDownload(store.OpenRead(job.OutputFile!), job.DownloadName());
