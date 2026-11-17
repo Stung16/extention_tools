@@ -70,7 +70,8 @@ npm run build
 ```
 
 `npm run build` đóng gói vào `api/src/CongCuFile.Api/wwwroot`. Khi sửa giao diện có thể dùng `npm run dev`
-(mở http://localhost:5173, sửa code là trang tự cập nhật; cần API đang chạy).
+(mở http://localhost:5173, sửa code là trang tự cập nhật; cần API đang chạy). Kiểm tra code: `npm run check`
+(ESLint + Prettier + test). Cấu trúc code: [web/README.md](web/README.md).
 
 **API** (cửa sổ terminal 1):
 
@@ -222,8 +223,9 @@ Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `wor
 1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/congcufile_worker/tools/<nhóm>/`,
    trả về đường dẫn file kết quả; đăng ký trong `worker/congcufile_worker/registry.py`. Chi tiết: [worker/README.md](worker/README.md).
 2. **API**: thêm một dòng vào `api/src/CongCuFile.Domain/Catalog/JobCatalog.cs` (tên, đuôi file nhận, tuỳ chọn).
-3. **Trang web**: thêm một dòng vào `web/src/catalog.js` với `job` trùng tên loại job.
-   Công cụ chạy trên trình duyệt thì viết component trong `web/src/tools/` và khai báo `client`.
+3. **Trang web**: thêm một dòng vào `web/src/catalog/categories.js` với `job` trùng tên loại job.
+   Công cụ chạy trên trình duyệt thì viết trong `web/src/features/`, khai báo trong `web/src/features/clientTools.js`
+   và đặt `client`. Chi tiết: [web/README.md](web/README.md).
 
 ## Cấu hình
 

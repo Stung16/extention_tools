@@ -61,7 +61,7 @@ Ví dụ worker báo xong (`POST /api/jobs/{id}/complete`):
 ## Thêm một việc thường gặp
 
 **Công cụ mới** (ví dụ "Xoay ảnh"): thêm một dòng vào `Domain/Catalog/JobCatalog.cs`, viết handler ở worker
-(`worker/congcufile_worker/tools/`, đăng ký ở `registry.py`), thêm vào `web/src/catalog.js`. Backend không phải sửa gì khác.
+(`worker/congcufile_worker/tools/`, đăng ký ở `registry.py`), thêm vào `web/src/catalog/categories.js`. Backend không phải sửa gì khác.
 
 **Endpoint mới**:
 1. Application: thêm hàm vào service phù hợp (hoặc service mới trong thư mục nhóm), trả `Result`.

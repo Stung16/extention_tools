@@ -17,22 +17,32 @@ Tóm tắt những gì đã thống nhất và đã làm, để Claude Code nắ
 Website kiểu pdfguru.com cho thị trường Việt Nam: nhiều công cụ xử lý file (PDF, ảnh, video, âm thanh,
 AI). Xử lý chạy trên máy local bằng phần mềm mã nguồn mở. Làm theo LUỒNG của pdfguru (mỗi công cụ một
 trang, ô kéo thả, bước hướng dẫn, FAQ, lưới công cụ theo nhóm), KHÔNG chép thương hiệu/câu chữ của họ.
-Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so sánh: docs/bao-cao-so-sanh-pdfguru.md.
+Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog/categories.js). Báo cáo so sánh: docs/bao-cao-so-sanh-pdfguru.md.
 
 ## Kiến trúc
 
 - `web/` React 18 + Vite 5 + react-router 6 (JavaScript, không TypeScript). `npm run build` ->
   `api/src/CongCuFile.Api/wwwroot` (scripts/clean.mjs xoá FILE cũ trước, vì API đang chạy giữ khoá thư mục
   -> EBUSY nếu để Vite xoá thư mục). `npm run dev` ở :5173, proxy /api -> :5100. wwwroot KHÔNG đưa lên Git.
-  - src/catalog.js: CATEGORIES -> tools {slug, name, desc, icon, job? | client?, faq?}. Có `job` mà API
+  - Làm lại 17/11/2026 (đợt 3, cùng nguyên tắc backend/worker; hướng dẫn: web/README.md). Cấu trúc src/: app/
+    (App, Layout) -> pages/ (HomePage, ToolPage, NotFoundPage, tool-page/toolHelp.js) -> features/ (clientTools.js,
+    server-jobs/, pdf/{operations,editor,components}, image/, video/) -> catalog/ (categories.js dữ liệu, faqs.js,
+    queries.js, JobTypesContext useJobTypes()) -> api/jobsApi.js (MỌI fetch/XHR); shared/ (components FileDrop,
+    PickFilePanel, FileLine, ChoiceGroup, ToolCard/ToolGrid, Messages; hooks useTask, useDocumentTitle; lib files,
+    format, search, pointer). Quy tắc phụ thuộc ép bằng ESLint no-restricted-imports (eslint.config.js). Import "@/"
+    = src/ (alias trong vite.config.js). Logic thuần (.js, không React) tách khỏi component: operations/*.js nhận
+    bytes trả bytes, test bằng Node. Prettier printWidth 120 (bỏ qua *.md). `npm run check` = lint + format:check +
+    Vitest (tests/: 49 test, gồm PDF thật do pdf-lib tạo, đối chiếu catalog với JobCatalog.cs và clientTools.js).
+  - catalog/categories.js: CATEGORIES -> tools {slug, name, desc, icon, job? | client?, faq?}. Có `job` mà API
     hỗ trợ -> dùng được; có `client` -> chạy trên trình duyệt; không có cả hai -> "Sắp có".
-  - src/tools/ServerTool.jsx: luồng chung chọn file/dán link -> tuỳ chọn -> useJob (XHR có % tải lên,
+  - features/server-jobs/ServerTool.jsx: luồng chung chọn file/dán link -> tuỳ chọn -> useJob (XHR có % tải lên,
     hỏi trạng thái mỗi 2 giây) -> JobStatus. Báo khi máy xử lý đang tắt (job-types.online, job.workerOnline).
-  - Công cụ trình duyệt (src/tools/index.jsx, nạp lazy): MergePdf, SplitPdf (JSZip), OrganizePdf
+  - Công cụ trình duyệt (features/clientTools.js, nạp lazy): MergePdf, SplitPdf (JSZip), OrganizePdf
     (thumbnail pdf.js, kéo thả), CropPdf (setCropBox theo tỉ lệ), PdfEditor (EditPdf/AnnotatePdf/SignPdf:
-    chữ, bút, tô sáng, che trắng, ảnh, chữ ký; lưu bằng pdf-lib, đổi toạ độ bằng viewport.convertToPdfPoint),
-    SignaturePad, FillPdf, QrCode (qrcode), MergeImages (canvas), TrimVideo (xem/chọn đoạn trên trình
-    duyệt, cắt bằng job trim-video).
+    chữ, bút, tô sáng, che trắng, ảnh, chữ ký; lưu bằng writeAnnotations (pdf-lib), đổi toạ độ bằng
+    viewport.convertToPdfPoint; thêm chữ thì ô nội dung tự focus không cuộn trang), SignaturePad, FillPdf,
+    QrCode (qrcode), MergeImages (canvas, mergeLayout.js), TrimVideo (xem/chọn đoạn trên trình duyệt, cắt bằng job
+    trim-video).
   - Chữ tiếng Việt trong PDF: nhúng phông Be Vietnam Pro (OFL) web/public/fonts, qua @pdf-lib/fontkit.
     FillPdf: updateFieldAppearances(font) rồi save({updateFieldAppearances:false}); tự đặt cỡ chữ theo
     chiều cao ô (cỡ tự động làm mất dấu nặng/chân chữ).

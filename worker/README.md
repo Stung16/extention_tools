@@ -57,7 +57,7 @@ Quy tắc: `core/` không import `tools/`. Công cụ chỉ dùng `config.settin
    Cần cấu hình mới thì thêm trường vào `Settings` trong `config.py`, đọc bằng `settings().ten_truong`.
 2. Thêm một dòng vào `registry.py`, trong nhóm phù hợp: `"rotate-image": images.xoay_anh,`.
 3. Khai báo loại job trong `api/src/CongCuFile.Domain/Catalog/JobCatalog.cs` (cùng tên, đúng `Worker:`)
-   và thêm vào `web/src/catalog.js`. Test `test_each_api_job_type_has_a_handler_in_the_right_worker` sẽ báo
+   và thêm vào `web/src/catalog/categories.js`. Test `test_each_api_job_type_has_a_handler_in_the_right_worker` sẽ báo
    nếu hai bên lệch nhau.
 4. Viết test trong `tests/`, chạy `pytest` và `ruff check .`.
 
