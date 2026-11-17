@@ -1,0 +1,4 @@
+# Công cụ cho người phát triển (không cần trên máy chạy thật):
+#   .venv\Scripts\pip install -r requirements-dev.txt
+pytest==9.0.1
+ruff==0.14.5

@@ -188,7 +188,7 @@ nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồ
 Công cụ `raw-develop` (dùng qua API v1, chưa có trên trang web): RawTherapee rửa RAW (khử nhoè quang học,
 sửa lỗi ống kính tự động, khử nhiễu với kiểu "Ảnh tối, ISO cao"), ExifTool xoá thông tin phần mềm tự ghi
 rồi chép nguyên metadata gốc của file RAW (máy, ống kính, ngày chụp, bản quyền). Kết quả JPEG chất lượng
-95 (4:4:4) hoặc TIFF 16-bit. Profile bổ sung ở `worker/handlers/photo_profiles/`.
+95 (4:4:4) hoặc TIFF 16-bit. Profile bổ sung ở `worker/congcufile_worker/tools/photo/profiles/`.
 
 Cài trên máy chạy worker (Windows):
 1. **RawTherapee** bản Windows từ rawtherapee.com (có `rawtherapee-cli.exe`).
@@ -219,8 +219,8 @@ Kiểm tra toàn bộ (API chạy sẵn, nên dùng `DataDir` tạm): trong `wor
 
 ## Thêm một công cụ mới
 
-1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/handlers/`, trả về đường
-   dẫn file kết quả; đăng ký trong `worker/handlers/__init__.py` (nhóm `MAIN`, AI hoặc PHOTO).
+1. **Worker**: viết hàm `xu_ly(input_path, work_dir, options)` trong `worker/congcufile_worker/tools/<nhóm>/`,
+   trả về đường dẫn file kết quả; đăng ký trong `worker/congcufile_worker/registry.py`. Chi tiết: [worker/README.md](worker/README.md).
 2. **API**: thêm một dòng vào `api/src/CongCuFile.Domain/Catalog/JobCatalog.cs` (tên, đuôi file nhận, tuỳ chọn).
 3. **Trang web**: thêm một dòng vào `web/src/catalog.js` với `job` trùng tên loại job.
    Công cụ chạy trên trình duyệt thì viết component trong `web/src/tools/` và khai báo `client`.

@@ -1,16 +1,17 @@
 """Hàm dùng chung cho các công cụ AI: thư mục mô hình, tải file mô hình, chọn CPU/GPU."""
 
 import logging
-import os
 import urllib.request
 from pathlib import Path
+
+from congcufile_worker.config import settings
 
 log = logging.getLogger("worker")
 
 
 def models_dir() -> Path:
     """Thư mục lưu mô hình AI (mặc định models/ ở gốc dự án, không đưa lên Git)."""
-    path = Path(os.environ.get("MODELS_DIR") or Path(__file__).resolve().parents[2] / "models")
+    path = settings().models_dir
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -29,7 +30,7 @@ def download_once(url: str, dest: Path) -> Path:
 
 def torch_device() -> str:
     """'cuda' nếu có GPU NVIDIA dùng được, không thì 'cpu'. Đặt AI_DEVICE=cpu để ép chạy CPU."""
-    forced = os.environ.get("AI_DEVICE")
+    forced = settings().ai_device
     if forced:
         return forced
     import torch

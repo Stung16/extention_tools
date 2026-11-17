@@ -3,7 +3,7 @@
 import zipfile
 from pathlib import Path
 
-from . import stirling
+from congcufile_worker.tools.pdf import stirling
 
 
 def word(input_path: Path, work_dir: Path, options: dict) -> Path:
@@ -15,7 +15,9 @@ def excel(input_path: Path, work_dir: Path, options: dict) -> Path:
 
 
 def powerpoint(input_path: Path, work_dir: Path, options: dict) -> Path:
-    return stirling.post("/api/v1/convert/pdf/presentation", input_path, work_dir, {"outputFormat": "pptx"}, expect=".pptx")
+    return stirling.post(
+        "/api/v1/convert/pdf/presentation", input_path, work_dir, {"outputFormat": "pptx"}, expect=".pptx"
+    )
 
 
 def text(input_path: Path, work_dir: Path, options: dict) -> Path:
@@ -41,12 +43,18 @@ def png(input_path: Path, work_dir: Path, options: dict) -> Path:
 
 def _images(input_path: Path, work_dir: Path, fmt: str) -> Path:
     # Mỗi trang một ảnh, độ phân giải 150 DPI (đủ nét để xem và in thường).
-    result = stirling.post("/api/v1/convert/pdf/img", input_path, work_dir, {
-        "imageFormat": fmt,
-        "singleOrMultiple": "multiple",
-        "colorType": "color",
-        "dpi": 150,
-    }, expect=".zip")
+    result = stirling.post(
+        "/api/v1/convert/pdf/img",
+        input_path,
+        work_dir,
+        {
+            "imageFormat": fmt,
+            "singleOrMultiple": "multiple",
+            "colorType": "color",
+            "dpi": 150,
+        },
+        expect=".zip",
+    )
 
     # Stirling luôn gói ảnh vào .zip. PDF chỉ có 1 trang thì lấy luôn ảnh ra cho người dùng đỡ phải giải nén.
     if result.suffix == ".zip":

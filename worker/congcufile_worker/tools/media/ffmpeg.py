@@ -1,32 +1,42 @@
 """Công cụ video và âm thanh bằng FFmpeg: nén, đổi định dạng, tách MP3, cắt đoạn.
 
 FFmpeg là chương trình dòng lệnh; worker gọi nó như khi bạn gõ lệnh trong terminal.
-Đường dẫn tới ffmpeg đặt bằng biến môi trường FFMPEG (mặc định "ffmpeg" trong PATH).
+Đường dẫn tới ffmpeg đặt bằng biến môi trường FFMPEG (mặc định "ffmpeg" trong PATH), xem config.py.
 """
 
-import os
 import shutil
-import subprocess
 from pathlib import Path
 
-FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
+from congcufile_worker.config import settings
+from congcufile_worker.core.errors import ToolError
+from congcufile_worker.core.process import run_program
 
 
 def run_ffmpeg(*args: str) -> None:
-    cmd = [FFMPEG, "-hide_banner", "-loglevel", "error", "-y", *args]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    except FileNotFoundError:
-        raise RuntimeError("Không tìm thấy FFmpeg trên máy xử lý. Cài FFmpeg hoặc đặt biến FFMPEG.") from None
-    if result.returncode != 0:
-        detail = (result.stderr or "").strip().splitlines()[-3:]
-        raise RuntimeError("FFmpeg báo lỗi: " + " | ".join(detail) if detail else "FFmpeg báo lỗi.")
+    """Chạy ffmpeg với các tham số, chỉ in lỗi (không in tiến độ), ghi đè file kết quả nếu đã có."""
+    run_program(
+        [settings().ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *args],
+        "FFmpeg",
+        "cài FFmpeg hoặc đặt biến FFMPEG",
+    )
 
 
 # Thiết lập video H.264 + âm thanh AAC: mở được trên mọi điện thoại, máy tính, trình duyệt.
 # yuv420p và kích thước chẵn là điều kiện để mọi máy phát được.
-H264 = ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
-        "-movflags", "+faststart"]
+H264 = [
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "128k",
+    "-movflags",
+    "+faststart",
+]
 EVEN = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
 
@@ -59,13 +69,30 @@ def convert_video(input_path: Path, work_dir: Path, options: dict) -> Path:
         run_ffmpeg("-i", str(input_path), "-vf", EVEN, *H264, "-crf", "22", str(out))
     elif fmt == "webm":
         # VP9 + Opus. "realtime" và cpu-used 8 cho nhanh, đổi lại file to hơn chút.
-        run_ffmpeg("-i", str(input_path), "-c:v", "libvpx-vp9", "-crf", "33", "-b:v", "0",
-                   "-deadline", "realtime", "-cpu-used", "8", "-c:a", "libopus", "-b:a", "128k", str(out))
+        run_ffmpeg(
+            "-i",
+            str(input_path),
+            "-c:v",
+            "libvpx-vp9",
+            "-crf",
+            "33",
+            "-b:v",
+            "0",
+            "-deadline",
+            "realtime",
+            "-cpu-used",
+            "8",
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "128k",
+            str(out),
+        )
     elif fmt == "mkv":
         # MKV chứa được hầu hết mọi loại hình/tiếng: chép nguyên luồng, không mã hoá lại nên rất nhanh.
         run_ffmpeg("-i", str(input_path), "-map", "0", "-c", "copy", str(out))
     else:
-        raise ValueError(f"Không hỗ trợ đổi sang '{fmt}'")
+        raise ToolError(f"Không hỗ trợ đổi sang '{fmt}'")
     return out
 
 
@@ -94,9 +121,21 @@ def video_to_mp3(input_path: Path, work_dir: Path, options: dict) -> Path:
 def trim_video(input_path: Path, work_dir: Path, options: dict) -> Path:
     start, end = float(options["start"]), float(options["end"])
     if end <= start:
-        raise ValueError("Thời điểm kết thúc phải sau thời điểm bắt đầu.")
+        raise ToolError("Thời điểm kết thúc phải sau thời điểm bắt đầu.")
     out = work_dir / "output.mp4"
     # Mã hoá lại (không chép nguyên luồng) để cắt đúng tới từng khung hình.
-    run_ffmpeg("-ss", f"{start:.3f}", "-i", str(input_path), "-t", f"{end - start:.3f}",
-               "-vf", EVEN, *H264, "-crf", "20", str(out))
+    run_ffmpeg(
+        "-ss",
+        f"{start:.3f}",
+        "-i",
+        str(input_path),
+        "-t",
+        f"{end - start:.3f}",
+        "-vf",
+        EVEN,
+        *H264,
+        "-crf",
+        "20",
+        str(out),
+    )
     return out

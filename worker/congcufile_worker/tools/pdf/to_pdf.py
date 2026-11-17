@@ -2,20 +2,25 @@
 
 from pathlib import Path
 
-from . import stirling
+from congcufile_worker.tools.image import images
+from congcufile_worker.tools.pdf import stirling
 
 
 def image(input_path: Path, work_dir: Path, options: dict) -> Path:
     # Stirling không đọc được ảnh iPhone (HEIC) và AVIF: đổi sang JPG bằng Pillow trước.
     if input_path.suffix.lower() in (".heic", ".heif", ".avif"):
-        from . import images
         input_path = images.to_jpg(input_path, work_dir)
     # Ảnh đặt vừa trang A4, giữ đúng tỉ lệ; ảnh nằm ngang thì tự xoay trang cho vừa.
-    return stirling.post("/api/v1/convert/img/pdf", input_path, work_dir, {
-        "fitOption": "maintainAspectRatio",
-        "colorType": "color",
-        "autoRotate": "true",
-    })
+    return stirling.post(
+        "/api/v1/convert/img/pdf",
+        input_path,
+        work_dir,
+        {
+            "fitOption": "maintainAspectRatio",
+            "colorType": "color",
+            "autoRotate": "true",
+        },
+    )
 
 
 def markdown(input_path: Path, work_dir: Path, options: dict) -> Path:
@@ -24,11 +29,16 @@ def markdown(input_path: Path, work_dir: Path, options: dict) -> Path:
 
 def ebook(input_path: Path, work_dir: Path, options: dict) -> Path:
     # Stirling dùng Calibre (có sẵn trong image Docker) để đổi ebook.
-    return stirling.post("/api/v1/convert/ebook/pdf", input_path, work_dir, {
-        "embedAllFonts": "false",
-        "includeTableOfContents": "false",
-        "includePageNumbers": "false",
-    })
+    return stirling.post(
+        "/api/v1/convert/ebook/pdf",
+        input_path,
+        work_dir,
+        {
+            "embedAllFonts": "false",
+            "includeTableOfContents": "false",
+            "includePageNumbers": "false",
+        },
+    )
 
 
 def email(input_path: Path, work_dir: Path, options: dict) -> Path:

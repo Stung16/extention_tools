@@ -81,38 +81,46 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog.js). Báo cáo so
   - Tên tải về: tên gốc + đuôi kết quả; cùng đuôi với file gốc thì thêm "-ket-qua".
   - Giới hạn form trang web 100 MB. MapFallback trả index.html (thiếu thì báo chạy npm run build); /api/* và
     /v1/* vẫn 404.
-- `worker/` Python. WORKER_PROFILE main | ai | photo | all. handlers/__init__.py: MAIN (35 loại), AI và PHOTO
-  (nạp lười). Mỗi handler (input_path, work_dir, options) -> Path.
-  - photo.py raw-develop: rawtherapee-cli -Y -p <profile có sẵn "Auto-Matched Curve - ISO Low/High"> -p
-    photo_profiles/<preset>.pp3 -o out (-t -b16 | -j95 -js3) -c raw; rồi exiftool -all= --ICC_Profile:all
+- `worker/` Python, làm lại 17/11/2026 (đợt 2, cùng nguyên tắc với backend; hướng dẫn: worker/README.md).
+  main.py chỉ gọi congcufile_worker.app.main(). Package congcufile_worker: config.py (Settings frozen +
+  settings() cache: MỌI biến môi trường; prepare_model_cache đặt HF_HOME/TORCH_HOME), registry.py
+  (main_handlers/ai_handlers/photo_handlers nạp lười, handlers_for(profile)), core/ (api_client.py ApiClient,
+  heartbeat.py, runner.py JobRunner.run_once/run_forever, process.py run_program/find_program, errors.py
+  ToolError + JobTakenBackError, models.py Job/Handler; core KHÔNG import tools), tools/{pdf,image,media,ai,
+  photo}. Handler vẫn (input_path, work_dir, options) -> Path; lỗi cho người dùng = ToolError. WORKER_PROFILE
+  main | ai | photo | all. pyproject.toml (ruff line 120, pytest), requirements-dev.txt (pytest, ruff);
+  tests/ 37 test (API giả bằng http.server, đối chiếu registry với JobCatalog.cs). Đã thử thật sau khi làm lại:
+  smoke_v1 30/30, 8 nhóm công cụ qua API (FFmpeg, DXF, Gotenberg, Stirling), worker AI làm nét x2.
+  - tools/photo/raw_develop.py: rawtherapee-cli -Y -p <profile có sẵn "Auto-Matched Curve - ISO Low/High"> -p
+    profiles/<preset>.pp3 -o out (-t -b16 | -j95 -js3) -c raw; rồi exiftool -all= --ICC_Profile:all
     -TagsFromFile raw -all:all (bỏ Orientation, ảnh preview/thumbnail). RAWTHERAPEE_CLI, EXIFTOOL tự tìm.
     CHƯA chạy thật: máy cá nhân chưa cài RawTherapee/ExifTool; khoá .pp3 phải đối chiếu với profile có sẵn
     của bản RT cài. Ảnh mẫu RAW (CR3, NEF, ARW, RAF, DNG từ raw.pixls.us) đã tải vào scratchpad/raw-samples.
-  - stirling.py post(): gửi fileInput KÈM content-type (thiếu thì pdf->word/presentation/html báo 400),
+  - tools/pdf/stirling.py post(): gửi fileInput KÈM content-type (thiếu thì pdf->word/presentation/html báo 400),
     đuôi kết quả theo Content-Disposition, lỗi pdf-password đổi tiếng Việt.
-  - images.py (Pillow 13 có AVIF sẵn + pillow-heif cho HEIC), media.py (FFmpeg: nén/đổi video, đổi âm
+  - tools/image/images.py (Pillow 13 có AVIF sẵn + pillow-heif cho HEIC), tools/media/ffmpeg.py (FFmpeg: nén/đổi video, đổi âm
     thanh, video->mp3, cắt video mã hoá lại cho chính xác).
-  - ai_audio.py: faster-whisper (large-v3-turbo GPU / small CPU), yt-dlp (YTDLP_COOKIES), DeepFilterNet
+  - tools/ai/audio.py: faster-whisper (large-v3-turbo GPU / small CPU), yt-dlp (YTDLP_COOKIES), DeepFilterNet
     bản chương trình độc lập deep-filter 0.5.6 (tự tải vào models/bin, không cần PyTorch), Demucs 4.1.0
     (gọi `python -m demucs --two-stems vocals --mp3`, không cần torchaudio).
-  - ai_image.py: Real-ESRGAN x2plus/x4plus qua spandrel, chia ô 256/512, giới hạn cạnh 3000/1500px.
-  - ai_text.py: Ollama (/api/chat, tự /api/pull nếu thiếu mô hình), pypdf/đọc docx; tóm tắt map-reduce,
+  - tools/ai/image.py: Real-ESRGAN x2plus/x4plus qua spandrel, chia ô 256/512, giới hạn cạnh 3000/1500px.
+  - tools/ai/text.py: Ollama (/api/chat, tự /api/pull nếu thiếu mô hình), pypdf/đọc docx; tóm tắt map-reduce,
     dịch theo đoạn 2500 ký tự. translate_pdf: gọi pdf2zh_next (PDFMathTranslate-next 2.10.2, AGPL, venv riêng
     .venv-pdf2zh hoặc PDF2ZH_BIN) với --ollama --ollama-model --ollama-host --lang-out --output
     --watermark-output-mode no_watermark --no-dual/--no-mono; kết quả *mono*.pdf / *dual*.pdf.
-  - ai_speech.py: VieNeu-TTS (pip vieneu 3.8.4, Apache-2.0, v3 Turbo 48 kHz, CPU bằng ONNX, không cần torch):
+  - tools/ai/speech.py: VieNeu-TTS (pip vieneu 3.8.4, Apache-2.0, v3 Turbo 48 kHz, CPU bằng ONNX, không cần torch):
     Vieneu().infer(text, voice=tên) -> save wav -> FFmpeg ra mp3. 25 giọng (list_preset_voices); catalog chọn 8.
-  - ai_music.py: ACE-Step 1.5 qua REST (ACESTEP_URL, mặc định :8001): POST /release_task {prompt, lyrics,
+  - tools/ai/music.py: ACE-Step 1.5 qua REST (ACESTEP_URL, mặc định :8001): POST /release_task {prompt, lyrics,
     audio_duration, audio_format mp3, batch_size 1} -> POST /query_result {task_id_list} (status 1 xong, 2 lỗi,
     result là chuỗi JSON có "file") -> GET file. ACE-Step cài riêng (uv sync; uv run acestep-api). CHƯA thử thật.
-  - converters.py: image-to-text (Stirling img->pdf -> ocr-pdf force-ocr vie+eng -> pdf/text), xps-to-pdf
+  - tools/pdf/converters.py: image-to-text (Stirling img->pdf -> ocr-pdf force-ocr vie+eng -> pdf/text), xps-to-pdf
     (xpstopdf, gói libgxps-utils), djvu-to-pdf (ddjvu -format=pdf, gói djvulibre-bin), dxf-to-pdf (ezdxf
     recover + matplotlib qsave). xpstopdf/ddjvu chỉ có trong image Docker worker (Debian 13); trên Windows báo
     "chưa cài". DWG chưa làm (Debian không có gói libredwg).
   - API Input "none" (không file, chỉ nhập chữ: text-to-speech, generate-music) và JobOption Kind "textarea".
     GET /api/jobs/{id} trả outputExt; /output trả đúng content-type (FileExtensionContentTypeProvider) để
     trang web nghe thử âm thanh (<audio>) trong JobStatus.
-  - Mô hình tải về models/ (HF_HOME, TORCH_HOME đặt trong main.py).
+  - Mô hình tải về models/ (HF_HOME, TORCH_HOME đặt trong config.prepare_model_cache).
   - Hai venv khi chạy tay: .venv (requirements.txt), .venv-ai (torch riêng + requirements-ai.txt).
     av phải < 16 (av 19 bỏ tham số metadata_errors mà faster-whisper 1.2.1 dùng).
 - `monitor/` Tauri 2.12 (Rust edition 2024) + giao diện HTML/CSS/JS thuần trong monitor/ui (không npm).

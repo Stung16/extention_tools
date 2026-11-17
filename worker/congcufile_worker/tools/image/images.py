@@ -9,6 +9,8 @@ from pathlib import Path
 import pillow_heif
 from PIL import Image, ImageOps
 
+from congcufile_worker.core.errors import ToolError
+
 pillow_heif.register_heif_opener()
 
 # Chất lượng JPG/WebP và cạnh dài tối đa cho từng mức nén.
@@ -86,5 +88,5 @@ def convert(input_path: Path, work_dir: Path, options: dict) -> Path:
         out = work_dir / "output.pdf"
         to_rgb(im).save(out, "PDF", resolution=150)
     else:
-        raise ValueError(f"Không hỗ trợ đổi sang '{fmt}'")
+        raise ToolError(f"Không hỗ trợ đổi sang '{fmt}'")
     return out

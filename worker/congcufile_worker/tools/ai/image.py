@@ -8,7 +8,9 @@ from pathlib import Path
 
 from PIL import Image
 
-from .ai_common import download_once, log, models_dir, torch_device
+from congcufile_worker.core.errors import ToolError
+from congcufile_worker.tools.ai.common import download_once, log, models_dir, torch_device
+from congcufile_worker.tools.image.images import open_image, to_rgb
 
 MODELS = {
     "2": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
@@ -22,7 +24,6 @@ _loaded = {}
 
 def _model(scale: str):
     if scale not in _loaded:
-        import torch
         from spandrel import ModelLoader
 
         path = download_once(MODELS[scale], models_dir() / "realesrgan" / Path(MODELS[scale]).name)
@@ -40,12 +41,13 @@ def enhance(input_path: Path, work_dir: Path, options: dict) -> Path:
     import torch
 
     scale = options.get("scale", "2")
-    from .images import open_image, to_rgb
 
     image = to_rgb(open_image(input_path))
     if max(image.size) > MAX_INPUT_SIDE[scale]:
-        raise ValueError(f"Ảnh quá lớn để phóng {scale} lần: cạnh dài tối đa {MAX_INPUT_SIDE[scale]}px "
-                         f"(ảnh của bạn {max(image.size)}px). Hãy chọn gấp 2 lần hoặc dùng ảnh nhỏ hơn.")
+        raise ToolError(
+            f"Ảnh quá lớn để phóng {scale} lần: cạnh dài tối đa {MAX_INPUT_SIDE[scale]}px "
+            f"(ảnh của bạn {max(image.size)}px). Hãy chọn gấp 2 lần hoặc dùng ảnh nhỏ hơn."
+        )
 
     model, device = _model(scale)
     dtype = torch.float16 if device == "cuda" else torch.float32
@@ -63,8 +65,9 @@ def enhance(input_path: Path, work_dir: Path, options: dict) -> Path:
                 t1, l1 = min(top + tile + pad, h), min(left + tile + pad, w)
                 out = model(x[:, :, t0:t1, l0:l1])
                 bottom, right = min(top + tile, h), min(left + tile, w)
-                result[:, :, top * s:bottom * s, left * s:right * s] = \
-                    out[:, :, (top - t0) * s:(bottom - t0) * s, (left - l0) * s:(right - l0) * s]
+                result[:, :, top * s : bottom * s, left * s : right * s] = out[
+                    :, :, (top - t0) * s : (bottom - t0) * s, (left - l0) * s : (right - l0) * s
+                ]
 
     array = (result.squeeze(0).permute(1, 2, 0).clamp(0, 1) * 255).round().byte().cpu().numpy()
     big = Image.fromarray(array)

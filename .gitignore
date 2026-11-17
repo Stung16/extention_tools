@@ -25,3 +25,7 @@ api/src/CongCuFile.Api/wwwroot/
 # Rust (trình giám sát): file sinh ra khi build
 monitor/target/
 monitor/gen/
+
+# Công cụ kiểm tra code Python
+.pytest_cache/
+.ruff_cache/

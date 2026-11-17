@@ -6,11 +6,12 @@ Biến môi trường:
 Mô hình tự tải lần đầu (lưu trong models/huggingface).
 """
 
-import os
 from pathlib import Path
 
-from . import media
-from .ai_common import log
+from congcufile_worker.config import settings
+from congcufile_worker.core.errors import ToolError
+from congcufile_worker.tools.ai.common import log
+from congcufile_worker.tools.media import ffmpeg as media
 
 _tts = None
 
@@ -20,7 +21,7 @@ def _engine():
     if _tts is None:
         from vieneu import Vieneu
 
-        precision = os.environ.get("VIENEU_PRECISION")
+        precision = settings().vieneu_precision
         log.info("Nạp VieNeu-TTS (lần đầu sẽ tải mô hình)...")
         _tts = Vieneu(precision=precision) if precision else Vieneu()
     return _tts
@@ -34,7 +35,7 @@ def preset_voices() -> list:
 def text_to_speech(input_path, work_dir: Path, options: dict) -> Path:
     text = options["text"].strip()
     if not text:
-        raise ValueError("Chưa có văn bản để đọc.")
+        raise ToolError("Chưa có văn bản để đọc.")
     tts = _engine()
     audio = tts.infer(text, voice=options.get("voice") or None)
     wav = work_dir / "giong-doc.wav"

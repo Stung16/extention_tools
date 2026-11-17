@@ -1,0 +1,30 @@
+# Cấu hình công cụ cho worker Python. Thư viện cần cài vẫn ghi trong requirements*.txt.
+#   pytest            chạy test (thư mục tests/)
+#   ruff check .      kiểm tra lỗi và quy ước code
+#   ruff format .     tự định dạng code cho thống nhất
+
+[project]
+name = "congcufile-worker"
+version = "0.2.0"
+description = "Worker xử lý file cho Công Cụ File: hỏi API lấy việc, xử lý, gửi kết quả."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", ".venv-ai", ".venv-pdf2zh"]
+
+[tool.ruff.lint]
+# E/W: lỗi định dạng, F: lỗi thật (biến chưa dùng, tên sai), I: thứ tự import, UP: cú pháp Python mới,
+# B: lỗi hay gặp, SIM: viết gọn hơn, N: quy ước đặt tên.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "N"]
+ignore = [
+    "E501",  # dòng dài: để ruff format lo; vài chuỗi tiếng Việt dài hơn 120 ký tự là bình thường
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["congcufile_worker"]

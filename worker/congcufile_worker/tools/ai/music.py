@@ -14,30 +14,32 @@ CHƯA chạy thử thật (máy phát triển không đủ GPU): các trường 
 """
 
 import json
-import os
 import time
 from pathlib import Path
 
 import requests
 
-from .ai_common import log
+from congcufile_worker.config import settings
+from congcufile_worker.core.errors import ToolError
+from congcufile_worker.tools.ai.common import log
 
-ACESTEP_URL = os.environ.get("ACESTEP_URL", "http://localhost:8001").rstrip("/")
 TIMEOUT_SECONDS = 30 * 60
 
 
 def _headers() -> dict:
-    key = os.environ.get("ACESTEP_API_KEY")
+    key = settings().acestep_api_key
     return {"Authorization": f"Bearer {key}"} if key else {}
 
 
 def _call(path: str, body: dict) -> dict:
     try:
-        r = requests.post(f"{ACESTEP_URL}{path}", json=body, headers=_headers(), timeout=120)
+        r = requests.post(f"{settings().acestep_url}{path}", json=body, headers=_headers(), timeout=120)
     except requests.ConnectionError:
-        raise RuntimeError(f"Không kết nối được máy chủ ACE-Step ở {ACESTEP_URL}. Đã chạy 'uv run acestep-api' chưa?") from None
+        raise ToolError(
+            f"Không kết nối được máy chủ ACE-Step ở {settings().acestep_url}. Đã chạy 'uv run acestep-api' chưa?"
+        ) from None
     if r.status_code >= 400:
-        raise RuntimeError(f"ACE-Step báo lỗi {r.status_code}: {r.text[:200]}")
+        raise ToolError(f"ACE-Step báo lỗi {r.status_code}: {r.text[:200]}")
     return r.json()
 
 
@@ -47,7 +49,7 @@ def generate(input_path, work_dir: Path, options: dict) -> Path:
         "lyrics": options.get("lyrics", ""),
         "audio_duration": float(options.get("duration", "60")),
         "audio_format": "mp3",
-        "batch_size": 1,          # chỉ cần 1 bản (mặc định của ACE-Step là 2)
+        "batch_size": 1,  # chỉ cần 1 bản (mặc định của ACE-Step là 2)
         "thinking": False,
     }
     task_id = _call("/release_task", body)["data"]["task_id"]
@@ -63,7 +65,7 @@ def generate(input_path, work_dir: Path, options: dict) -> Path:
             continue
         status = item.get("status")
         if status == 2:
-            raise RuntimeError(f"ACE-Step tạo nhạc thất bại: {item.get('error') or item.get('result')}")
+            raise ToolError(f"ACE-Step tạo nhạc thất bại: {item.get('error') or item.get('result')}")
         if status == 1:
             result = item.get("result")
             if isinstance(result, str):
@@ -71,9 +73,9 @@ def generate(input_path, work_dir: Path, options: dict) -> Path:
             if isinstance(result, list):
                 result = result[0]
             file_url = result["file"]  # dạng "/v1/audio?path=..."
-            audio = requests.get(f"{ACESTEP_URL}{file_url}", headers=_headers(), timeout=300)
+            audio = requests.get(f"{settings().acestep_url}{file_url}", headers=_headers(), timeout=300)
             audio.raise_for_status()
             out = work_dir / "nhac-ai.mp3"
             out.write_bytes(audio.content)
             return out
-    raise RuntimeError("ACE-Step chạy quá 30 phút chưa xong.")
+    raise ToolError("ACE-Step chạy quá 30 phút chưa xong.")
