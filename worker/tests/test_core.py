@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import requests
 
 from congcufile_worker.config import PROJECT_ROOT, settings
 from congcufile_worker.core.api_client import ApiClient
@@ -11,6 +12,7 @@ from congcufile_worker.core.errors import JobTakenBackError, ToolError
 from congcufile_worker.core.models import Job
 from congcufile_worker.core.process import find_program, run_program
 from congcufile_worker.core.runner import JobRunner
+from congcufile_worker.core.services import call_service
 
 JOB = Job(id="job-1", type="compress-image", original_name="anh.png", input="file", attempt=2)
 
@@ -254,3 +256,46 @@ def test_find_program_uses_fallback_pattern(tmp_path):
         (tmp_path / version / "tool.exe").write_text("")
     found = find_program(None, ["chuong-trinh-khong-ton-tai-123"], [str(tmp_path / "*" / "tool.exe")])
     assert Path(found).parent.name == "5.11"  # bản mới nhất
+
+
+# ---------- Gọi dịch vụ phụ (Stirling-PDF, Gotenberg, Ollama...) ----------
+
+
+def _closed_port_url() -> str:
+    """Địa chỉ một cổng không có chương trình nào nghe."""
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    return f"http://127.0.0.1:{port}"
+
+
+def test_call_service_offline_gives_vietnamese_message():
+    with pytest.raises(ToolError, match=r"^Dịch vụ xử lý PDF \(Stirling-PDF\) đang tắt"):
+        call_service("Stirling-PDF", "xử lý PDF", "GET", _closed_port_url(), timeout=5)
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (requests.ConnectTimeout("x"), "đang tắt"),
+        (requests.ReadTimeout("x"), "chạy quá lâu"),
+        (requests.ConnectionError("HTTPConnectionPool refused"), "đang tắt"),
+    ],
+)
+def test_call_service_maps_request_errors(monkeypatch, error, expected):
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(requests, "request", fail)
+    with pytest.raises(ToolError) as info:
+        call_service("Gotenberg", "chuyển sang PDF", "POST", "http://x")
+    assert expected in str(info.value)
+    assert "HTTPConnectionPool" not in str(info.value)  # không lộ lỗi kỹ thuật tiếng Anh
+
+
+def test_call_service_returns_error_responses(fake_api):
+    fake_api.replies[("GET", "/thu")] = [(503, {"error": "bận"})]
+    r = call_service("Dịch vụ thử", "thử", "GET", f"{settings().api_url}/thu", timeout=5)
+    assert r.status_code == 503  # mã lỗi HTTP: để nơi gọi tự đọc câu lỗi của dịch vụ

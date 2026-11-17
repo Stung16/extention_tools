@@ -8,9 +8,9 @@ html_to_pdf    HTML -> PDF: Gotenberg mở trang bằng trình duyệt Chromium 
 
 from pathlib import Path
 
-import requests
-
 from congcufile_worker.config import settings
+from congcufile_worker.core.errors import ToolError
+from congcufile_worker.core.services import call_service
 
 
 def office_to_pdf(input_path: Path, work_dir: Path, options: dict) -> Path:
@@ -25,8 +25,12 @@ def html_to_pdf(input_path: Path, work_dir: Path, options: dict) -> Path:
 
 
 def _convert(endpoint: str, files: dict, work_dir: Path) -> Path:
-    r = requests.post(f"{settings().gotenberg_url}{endpoint}", files=files, timeout=300)
-    r.raise_for_status()
+    r = call_service(
+        "Gotenberg", "chuyển sang PDF", "POST", f"{settings().gotenberg_url}{endpoint}", files=files, timeout=300
+    )
+    if r.status_code >= 400:
+        # Gotenberg trả lỗi dạng chữ thường (ví dụ file hỏng LibreOffice không mở được).
+        raise ToolError(f"Gotenberg báo lỗi {r.status_code}: {r.text[:200]}")
     output_path = work_dir / "output.pdf"
     output_path.write_bytes(r.content)
     return output_path

@@ -12,11 +12,10 @@ import sys
 import zipfile
 from pathlib import Path
 
-import requests
-
 from congcufile_worker.config import PROJECT_ROOT, settings
 from congcufile_worker.core.errors import ToolError
 from congcufile_worker.core.process import find_program, run_program
+from congcufile_worker.core.services import call_service
 from congcufile_worker.tools.ai.common import log
 
 CHUNK_CHARS = 6000  # mỗi lần gửi cho mô hình khoảng 6000 ký tự (~ 2-3 trang)
@@ -43,22 +42,23 @@ def _chat(system: str, user: str) -> str:
         "stream": False,
         "options": {"temperature": 0.2, "num_ctx": 8192},
     }
-    try:
-        r = requests.post(f"{s.ollama_url}/api/chat", json=body, timeout=1800)
-    except requests.ConnectionError:
-        raise ToolError(f"Không kết nối được Ollama ở {s.ollama_url}. Ollama đã chạy chưa?") from None
+    r = _ollama("/api/chat", body, timeout=1800)
     if r.status_code == 404 and "not found" in r.text:
         _pull_model()
-        r = requests.post(f"{s.ollama_url}/api/chat", json=body, timeout=1800)
+        r = _ollama("/api/chat", body, timeout=1800)
     if r.status_code >= 400:
         raise ToolError(f"Ollama báo lỗi {r.status_code}: {r.text[:200]}")
     return r.json()["message"]["content"].strip()
 
 
+def _ollama(path: str, body: dict, timeout: int):
+    return call_service("Ollama", "AI xử lý chữ", "POST", f"{settings().ollama_url}{path}", json=body, timeout=timeout)
+
+
 def _pull_model():
     s = settings()
     log.info("Ollama chưa có mô hình %s: đang tải về (chỉ lần đầu, có thể mất vài phút)...", s.ollama_model)
-    r = requests.post(f"{s.ollama_url}/api/pull", json={"model": s.ollama_model, "stream": False}, timeout=7200)
+    r = _ollama("/api/pull", {"model": s.ollama_model, "stream": False}, timeout=7200)
     if r.status_code >= 400:
         raise ToolError(f"Không tải được mô hình {s.ollama_model}: {r.text[:200]}")
 

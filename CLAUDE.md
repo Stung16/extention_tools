@@ -95,11 +95,13 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog/categories.js). B
   main.py chỉ gọi congcufile_worker.app.main(). Package congcufile_worker: config.py (Settings frozen +
   settings() cache: MỌI biến môi trường; prepare_model_cache đặt HF_HOME/TORCH_HOME), registry.py
   (main_handlers/ai_handlers/photo_handlers nạp lười, handlers_for(profile)), core/ (api_client.py ApiClient,
-  heartbeat.py, runner.py JobRunner.run_once/run_forever, process.py run_program/find_program, errors.py
+  heartbeat.py, runner.py JobRunner.run_once/run_forever, process.py run_program/find_program (chương trình con
+  Python in UTF-8 qua PYTHONIOENCODING), services.py call_service (dịch vụ HTTP tắt/quá giờ -> ToolError tiếng
+  Việt "Dịch vụ xử lý PDF (Stirling-PDF) đang tắt..."; Stirling, Gotenberg, Ollama, ACE-Step đều qua đây), errors.py
   ToolError + JobTakenBackError, models.py Job/Handler; core KHÔNG import tools), tools/{pdf,image,media,ai,
   photo}. Handler vẫn (input_path, work_dir, options) -> Path; lỗi cho người dùng = ToolError. WORKER_PROFILE
   main | ai | photo | all. pyproject.toml (ruff line 120, pytest), requirements-dev.txt (pytest, ruff);
-  tests/ 37 test (API giả bằng http.server, đối chiếu registry với JobCatalog.cs). Đã thử thật sau khi làm lại:
+  tests/ 43 test (API giả bằng http.server, đối chiếu registry với JobCatalog.cs). Đã thử thật sau khi làm lại:
   smoke_v1 30/30, 8 nhóm công cụ qua API (FFmpeg, DXF, Gotenberg, Stirling), worker AI làm nét x2.
   - tools/photo/raw_develop.py: rawtherapee-cli -Y -p <profile có sẵn "Auto-Matched Curve - ISO Low/High"> -p
     profiles/<preset>.pp3 -o out (-t -b16 | -j95 -js3) -c raw; rồi exiftool -all= --ICC_Profile:all

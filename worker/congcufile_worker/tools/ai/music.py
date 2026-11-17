@@ -17,10 +17,9 @@ import json
 import time
 from pathlib import Path
 
-import requests
-
 from congcufile_worker.config import settings
 from congcufile_worker.core.errors import ToolError
+from congcufile_worker.core.services import call_service
 from congcufile_worker.tools.ai.common import log
 
 TIMEOUT_SECONDS = 30 * 60
@@ -32,12 +31,9 @@ def _headers() -> dict:
 
 
 def _call(path: str, body: dict) -> dict:
-    try:
-        r = requests.post(f"{settings().acestep_url}{path}", json=body, headers=_headers(), timeout=120)
-    except requests.ConnectionError:
-        raise ToolError(
-            f"Không kết nối được máy chủ ACE-Step ở {settings().acestep_url}. Đã chạy 'uv run acestep-api' chưa?"
-        ) from None
+    r = call_service(
+        "ACE-Step", "tạo nhạc AI", "POST", f"{settings().acestep_url}{path}", json=body, headers=_headers(), timeout=120
+    )
     if r.status_code >= 400:
         raise ToolError(f"ACE-Step báo lỗi {r.status_code}: {r.text[:200]}")
     return r.json()
@@ -73,8 +69,11 @@ def generate(input_path, work_dir: Path, options: dict) -> Path:
             if isinstance(result, list):
                 result = result[0]
             file_url = result["file"]  # dạng "/v1/audio?path=..."
-            audio = requests.get(f"{settings().acestep_url}{file_url}", headers=_headers(), timeout=300)
-            audio.raise_for_status()
+            audio = call_service(
+                "ACE-Step", "tạo nhạc AI", "GET", f"{settings().acestep_url}{file_url}", headers=_headers(), timeout=300
+            )
+            if audio.status_code >= 400:
+                raise ToolError(f"ACE-Step báo lỗi {audio.status_code} khi tải file nhạc.")
             out = work_dir / "nhac-ai.mp3"
             out.write_bytes(audio.content)
             return out

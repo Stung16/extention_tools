@@ -12,6 +12,7 @@ from congcufile_worker.core.errors import ToolError
 from congcufile_worker.registry import ai_handlers, handlers_for, main_handlers, photo_handlers
 from congcufile_worker.tools.image import images
 from congcufile_worker.tools.media import ffmpeg
+from congcufile_worker.tools.pdf import gotenberg, stirling
 from congcufile_worker.tools.photo import raw_develop
 
 CATALOG = PROJECT_ROOT / "api" / "src" / "CongCuFile.Domain" / "Catalog" / "JobCatalog.cs"
@@ -162,3 +163,23 @@ def test_metadata_command_copies_raw_metadata_and_keeps_color_profile(tmp_path):
 def test_profiles_exist_for_every_preset():
     for _base, overlay in raw_develop.PRESETS.values():
         assert (raw_develop.PROFILES_DIR / overlay).is_file()
+
+
+# ---------- Dịch vụ PDF tắt ----------
+
+
+def test_pdf_tools_report_offline_service_in_vietnamese(tmp_path, env):
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        closed = f"http://127.0.0.1:{sock.getsockname()[1]}"
+    env(STIRLING_URL=closed, GOTENBERG_URL=closed)
+    src = tmp_path / "a.pdf"
+    src.write_bytes(b"%PDF-1.4")
+    with pytest.raises(ToolError, match=r"Stirling-PDF\) đang tắt"):
+        stirling.post("/api/v1/misc/compress-pdf", src, tmp_path)
+    doc = tmp_path / "a.docx"
+    doc.write_bytes(b"x")
+    with pytest.raises(ToolError, match=r"Gotenberg\) đang tắt"):
+        gotenberg.office_to_pdf(doc, tmp_path, {})

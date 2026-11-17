@@ -14,6 +14,7 @@ import requests
 
 from congcufile_worker.config import settings
 from congcufile_worker.core.errors import ToolError
+from congcufile_worker.core.services import call_service
 
 # Một số lỗi của Stirling, đổi sang câu tiếng Việt dễ hiểu cho người dùng.
 FRIENDLY_ERRORS = {
@@ -33,7 +34,10 @@ def post(endpoint: str, input_path: Path, work_dir: Path, data: dict | None = No
     # PowerPoint, HTML...) báo lỗi 400 nếu thiếu.
     content_type = mimetypes.guess_type(input_path.name)[0] or "application/octet-stream"
     with open(input_path, "rb") as f:
-        r = requests.post(
+        r = call_service(
+            "Stirling-PDF",
+            "xử lý PDF",
+            "POST",
             f"{s.stirling_url}{endpoint}",
             headers=headers,
             files={"fileInput": (input_path.name, f, content_type)},

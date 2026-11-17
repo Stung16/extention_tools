@@ -61,7 +61,9 @@ def run_program(
             errors="replace",
             timeout=timeout,
             cwd=cwd,
-            env={**os.environ, **env} if env else None,
+            # Chương trình con là Python (pdf2zh, Demucs...) thì in bằng UTF-8, khớp với cách đọc ở trên
+            # (trên Windows mặc định là cp1252, chữ có dấu sẽ bị hỏng).
+            env={**os.environ, "PYTHONIOENCODING": "utf-8", **(env or {})},
         )
     except FileNotFoundError:
         hint = f" ({install_hint})" if install_hint else ""

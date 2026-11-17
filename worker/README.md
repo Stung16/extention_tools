@@ -22,6 +22,8 @@ congcufile_worker/
     heartbeat.py                luồng phụ gửi tín hiệu sống trong lúc xử lý
     runner.py                   vòng lặp: xin việc -> thư mục tạm -> gọi công cụ -> gửi kết quả / báo lỗi
     process.py                  chạy chương trình ngoài (FFmpeg, RawTherapee...) và tìm đường dẫn chương trình
+    services.py                 call_service(): gọi dịch vụ phụ qua HTTP (Stirling-PDF, Gotenberg, Ollama...);
+                                dịch vụ tắt / không trả lời thì báo câu tiếng Việt
     errors.py                   ToolError (lỗi báo cho người dùng), JobTakenBackError
     models.py                   Job, kiểu Handler
   tools/                        các công cụ, chia theo nhóm
@@ -34,7 +36,8 @@ congcufile_worker/
 tests/                          pytest
 ```
 
-Quy tắc: `core/` không import `tools/`. Công cụ chỉ dùng `config.settings()`, `core.process`, `core.errors`.
+Quy tắc: `core/` không import `tools/`. Công cụ chỉ dùng `config.settings()`, `core.process`, `core.services`,
+`core.errors`. Gọi dịch vụ HTTP thì luôn qua `call_service(...)`, không gọi thẳng `requests`.
 
 ## Một job đi qua worker thế nào
 
@@ -54,6 +57,7 @@ Quy tắc: `core/` không import `tools/`. Công cụ chỉ dùng `config.settin
        return out
    ```
    Cần chương trình ngoài thì dùng `run_program([...], "Tên chương trình", "gợi ý cài")`.
+   Cần dịch vụ HTTP thì dùng `call_service("Tên dịch vụ", "việc nó làm", "POST", url, ...)`.
    Cần cấu hình mới thì thêm trường vào `Settings` trong `config.py`, đọc bằng `settings().ten_truong`.
 2. Thêm một dòng vào `registry.py`, trong nhóm phù hợp: `"rotate-image": images.xoay_anh,`.
 3. Khai báo loại job trong `api/src/CongCuFile.Domain/Catalog/JobCatalog.cs` (cùng tên, đúng `Worker:`)
