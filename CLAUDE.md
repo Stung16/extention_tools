@@ -139,9 +139,14 @@ Tên tạm: "Công Cụ File" (SITE_NAME trong web/src/catalog/categories.js). B
   withGlobalTauri, cửa sổ maximized), icons/icon.ico tự vẽ bằng Pillow. Rust chỉ đưa thư (API không mở CORS):
   lệnh overview, job_action (retry/cancel), check_services (ping song song, reqwest async + futures).
   JS gọi window.__TAURI__.core.invoke; cài đặt (apiUrl, key) lưu localStorage; hỏi API 2 giây, dịch vụ 5 giây.
+  Làm lại 17/11/2026 (đợt 4, hướng dẫn: monitor/README.md): Rust tách main.rs / commands.rs (lớp mỏng) /
+  admin_api.rs (AdminApi, JobAction, error_message) / services.rs; test bằng máy chủ HTTP giả test_server.rs
+  (tokio dev-dependency), 7 test; clippy -D warnings, rustfmt.toml max_width 120. Giao diện: ES module
+  ui/js/{main,state,api,settings,model,format,dom}.js + views/{topbar,belt,side,table,drawer}.js; view chỉ vẽ,
+  main.js nghe mọi cú bấm qua data-*; model.js hàm thuần, test `node --test "tests-ui/*.test.js"` (17 test).
   Thiết kế: "băng chuyền" Hàng chờ -> Đang xử lý -> Kết quả là điểm nhấn; màu chỉ báo trạng thái
   (hổ phách chờ, mòng két chạy, xanh xong, đỏ lỗi); phông Segoe UI Variable, Be Vietnam Pro dự phòng.
-  API: GET /api/admin/overview, POST /api/admin/jobs/{id}/retry|cancel (X-Worker-Key). "Thời gian" =
+  API: GET /api/admin/overview, POST /api/admin/jobs/{id}/retry|cancel (X-Admin-Key). "Thời gian" =
   UpdatedAt - CreatedAt (gồm chờ); job đang chạy = now - UpdatedAt; retry đặt lại CreatedAt, Attempts = 0.
   Chụp màn hình app bằng computer-use: request_access dùng đường dẫn đầy đủ tới monitor.exe; đưa cửa sổ lên
   trước bằng WScript.Shell AppActivate (open_application sẽ mở thêm một bản). Chưa xem kỹ giao diện sáng.

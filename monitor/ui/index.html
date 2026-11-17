@@ -1,123 +1,142 @@
 <!doctype html>
 <html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Giám sát Công Cụ File</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <svg class="brand__mark" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="1" y="1" width="46" height="46" rx="11" class="brand__tile"/>
-        <line x1="12" y1="24" x2="36" y2="24" class="brand__track"/>
-        <circle cx="12" cy="24" r="5" class="brand__dot brand__dot--wait"/>
-        <circle cx="24" cy="24" r="5" class="brand__dot brand__dot--run"/>
-        <circle cx="36" cy="24" r="5" class="brand__dot brand__dot--done"/>
-      </svg>
-      <div>
-        <h1 class="brand__name">Công Cụ File</h1>
-        <p class="brand__sub">Giám sát máy chủ</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Giám sát Công Cụ File</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand__mark" viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="1" y="1" width="46" height="46" rx="11" class="brand__tile" />
+          <line x1="12" y1="24" x2="36" y2="24" class="brand__track" />
+          <circle cx="12" cy="24" r="5" class="brand__dot brand__dot--wait" />
+          <circle cx="24" cy="24" r="5" class="brand__dot brand__dot--run" />
+          <circle cx="36" cy="24" r="5" class="brand__dot brand__dot--done" />
+        </svg>
+        <div>
+          <h1 class="brand__name">Công Cụ File</h1>
+          <p class="brand__sub">Giám sát máy chủ</p>
+        </div>
       </div>
-    </div>
-    <div class="topbar__right">
-      <p class="conn" id="conn"><span class="dot"></span><span id="conn-text">Đang kết nối…</span></p>
-      <button class="btn btn--quiet" id="open-settings" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
-        Cài đặt
-      </button>
-    </div>
-  </header>
+      <div class="topbar__right">
+        <p class="conn" id="conn"><span class="dot"></span><span id="conn-text">Đang kết nối…</span></p>
+        <button class="btn btn--quiet" id="open-settings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+            <path
+              d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"
+            />
+          </svg>
+          Cài đặt
+        </button>
+      </div>
+    </header>
 
-  <section class="attention" id="attention" aria-live="polite"></section>
+    <section class="attention" id="attention" aria-live="polite"></section>
 
-  <section class="belt" id="belt" aria-label="Đường đi của job">
-    <div class="belt__track" aria-hidden="true"></div>
-    <article class="station station--wait">
-      <header class="station__head">
-        <h2>Hàng chờ</h2>
-        <span class="station__count" id="count-wait">0</span>
-      </header>
-      <ul class="station__body" id="body-wait"></ul>
-    </article>
-    <article class="station station--run">
-      <header class="station__head">
-        <h2>Đang xử lý</h2>
-        <span class="station__count" id="count-run">0</span>
-      </header>
-      <ul class="station__body" id="body-run"></ul>
-    </article>
-    <article class="station station--done">
-      <header class="station__head">
-        <h2>Kết quả 24 giờ</h2>
-        <span class="station__split">
-          <span class="station__count station__count--done" id="count-done">0</span><span class="station__unit">xong</span>
-          <span class="station__count station__count--fail" id="count-fail">0</span><span class="station__unit">lỗi</span>
-        </span>
-      </header>
-      <ul class="station__body" id="body-done"></ul>
-    </article>
-  </section>
+    <section class="belt" id="belt" aria-label="Đường đi của job">
+      <div class="belt__track" aria-hidden="true"></div>
+      <article class="station station--wait">
+        <header class="station__head">
+          <h2>Hàng chờ</h2>
+          <span class="station__count" id="count-wait">0</span>
+        </header>
+        <ul class="station__body" id="body-wait"></ul>
+      </article>
+      <article class="station station--run">
+        <header class="station__head">
+          <h2>Đang xử lý</h2>
+          <span class="station__count" id="count-run">0</span>
+        </header>
+        <ul class="station__body" id="body-run"></ul>
+      </article>
+      <article class="station station--done">
+        <header class="station__head">
+          <h2>Kết quả 24 giờ</h2>
+          <span class="station__split">
+            <span class="station__count station__count--done" id="count-done">0</span
+            ><span class="station__unit">xong</span>
+            <span class="station__count station__count--fail" id="count-fail">0</span
+            ><span class="station__unit">lỗi</span>
+          </span>
+        </header>
+        <ul class="station__body" id="body-done"></ul>
+      </article>
+    </section>
 
-  <main class="lower">
-    <aside class="side">
-      <section class="panel">
-        <h2 class="panel__title">Máy xử lý và dịch vụ</h2>
-        <ul class="health" id="health"></ul>
+    <main class="lower">
+      <aside class="side">
+        <section class="panel">
+          <h2 class="panel__title">Máy xử lý và dịch vụ</h2>
+          <ul class="health" id="health"></ul>
+        </section>
+        <section class="panel">
+          <h2 class="panel__title">Số job từ lúc mở app</h2>
+          <div class="chart" id="chart"></div>
+        </section>
+        <section class="panel">
+          <h2 class="panel__title">Con số chung</h2>
+          <dl class="facts" id="facts"></dl>
+        </section>
+      </aside>
+
+      <section class="panel work">
+        <div class="tabs" role="tablist" id="tabs">
+          <button role="tab" type="button" data-tab="queue">
+            Hàng chờ <span class="tabs__n" id="tab-n-queue">0</span>
+          </button>
+          <button role="tab" type="button" data-tab="history">
+            Lịch sử 24 giờ <span class="tabs__n" id="tab-n-history">0</span>
+          </button>
+          <button role="tab" type="button" data-tab="tools">Theo công cụ</button>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input type="search" id="search" placeholder="Tìm theo tên file hoặc công cụ" autocomplete="off" />
+            <kbd>/</kbd>
+          </label>
+          <div class="filters" id="filters"></div>
+        </div>
+        <div class="table-wrap" id="table"></div>
       </section>
-      <section class="panel">
-        <h2 class="panel__title">Số job từ lúc mở app</h2>
-        <div class="chart" id="chart"></div>
-      </section>
-      <section class="panel">
-        <h2 class="panel__title">Con số chung</h2>
-        <dl class="facts" id="facts"></dl>
-      </section>
+    </main>
+
+    <aside class="drawer" id="drawer" aria-label="Chi tiết job" aria-hidden="true">
+      <div class="drawer__inner" id="drawer-inner"></div>
     </aside>
 
-    <section class="panel work">
-      <div class="tabs" role="tablist" id="tabs">
-        <button role="tab" type="button" data-tab="queue">Hàng chờ <span class="tabs__n" id="tab-n-queue">0</span></button>
-        <button role="tab" type="button" data-tab="history">Lịch sử 24 giờ <span class="tabs__n" id="tab-n-history">0</span></button>
-        <button role="tab" type="button" data-tab="tools">Theo công cụ</button>
-      </div>
-      <div class="toolbar">
-        <label class="search">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input type="search" id="search" placeholder="Tìm theo tên file hoặc công cụ" autocomplete="off">
-          <kbd>/</kbd>
+    <dialog class="settings" id="settings">
+      <form method="dialog" id="settings-form">
+        <h2>Cài đặt</h2>
+        <label
+          >Địa chỉ API
+          <input name="apiUrl" id="set-api" required placeholder="http://localhost:5100" />
+          <small
+            >Trình giám sát chạy cùng máy với API thì để mặc định. Các dịch vụ khác được kiểm tra trên cùng máy với
+            API.</small
+          >
         </label>
-        <div class="filters" id="filters"></div>
-      </div>
-      <div class="table-wrap" id="table"></div>
-    </section>
-  </main>
+        <label
+          >Mã quản trị
+          <input name="key" id="set-key" required autocomplete="off" />
+          <small>Trùng với ADMIN_KEY (AdminKey) của API, khác với mã của worker. Khi chạy thử là dev-admin-key.</small>
+        </label>
+        <div class="settings__actions">
+          <button class="btn btn--quiet" value="cancel" formnovalidate>Đóng</button>
+          <button class="btn btn--primary" value="save" id="settings-save">Lưu và kết nối lại</button>
+        </div>
+      </form>
+    </dialog>
 
-  <aside class="drawer" id="drawer" aria-label="Chi tiết job" aria-hidden="true">
-    <div class="drawer__inner" id="drawer-inner"></div>
-  </aside>
+    <div class="toast" id="toast" role="status"></div>
 
-  <dialog class="settings" id="settings">
-    <form method="dialog" id="settings-form">
-      <h2>Cài đặt</h2>
-      <label>Địa chỉ API
-        <input name="apiUrl" id="set-api" required placeholder="http://localhost:5100">
-        <small>Trình giám sát chạy cùng máy với API thì để mặc định. Các dịch vụ khác được kiểm tra trên cùng máy với API.</small>
-      </label>
-      <label>Mã quản trị
-        <input name="key" id="set-key" required autocomplete="off">
-        <small>Trùng với ADMIN_KEY (AdminKey) của API, khác với mã của worker. Khi chạy thử là dev-admin-key.</small>
-      </label>
-      <div class="settings__actions">
-        <button class="btn btn--quiet" value="cancel" formnovalidate>Đóng</button>
-        <button class="btn btn--primary" value="save" id="settings-save">Lưu và kết nối lại</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div class="toast" id="toast" role="status"></div>
-
-  <script src="app.js"></script>
-</body>
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>

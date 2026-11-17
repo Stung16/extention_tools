@@ -183,6 +183,7 @@ Lần đầu build mất vài phút. File chạy được: `monitor/target/relea
 vào file .exe). Mặc định nối `http://localhost:5100` với mã quản trị `dev-admin-key`; các dịch vụ khác được
 kiểm tra trên cùng máy với API (cổng 8080, 3000, 11434). Dịch vụ "đang chạy" nếu trả lời bất kỳ mã HTTP
 nào. "Thời gian trung bình" tính từ lúc gửi file tới lúc xong, gồm cả thời gian chờ.
+Cấu trúc code, cách thêm tính năng, chạy test: [monitor/README.md](monitor/README.md).
 
 ## Rửa ảnh RAW (worker "photo", không dùng AI)
 
